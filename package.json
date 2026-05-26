@@ -1,0 +1,13 @@
+{
+  "name": "petcarehub365",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:be": "npm run dev --prefix petcarehub365_be",
+    "dev:mma": "npm run dev --prefix petcarehub365_mma",
+    "dev": "concurrently \"npm run dev:be\" \"npm run dev:mma\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
