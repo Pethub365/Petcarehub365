@@ -1,4 +1,4 @@
-const { DailyQuest, VetKnowledge } = require('../models');
+const { DailyQuest, VetKnowledge, HealthLog, WeeklyQuest } = require('../models');
 
 const seedDefaultKnowledge = async () => {
     const count = await VetKnowledge.countDocuments();
@@ -126,29 +126,142 @@ const ensureDailyQuestsForPet = async (pet, date = new Date()) => {
             });
         }
 
-        // 2. Lấy một bài VetKnowledge tương ứng loài và thể trạng để tạo nhiệm vụ đặc biệt
-        const knowledge = await VetKnowledge.findOne({
-            is_active: true,
-            $or: [
-                { 'target_audience.species': pet.species },
-                { 'target_audience.species': 'ALL' }
-            ]
-        });
+        // 1.5. Tạo nhiệm vụ cá nhân hóa theo tuổi, tình trạng sức khỏe và chỉ số sức khỏe gần nhất
+        const dob = pet.dob ? new Date(pet.dob) : new Date();
+        const ageInMonths = Math.max(0, Math.floor((startOfDay - dob) / (1000 * 60 * 60 * 24 * 30.4375)));
+        const latestHealthLog = await HealthLog.findOne({ pet_id: pet._id }).sort({ measured_at: -1 });
 
-        if (knowledge) {
-            defaultQuests.push({
+        let personalizedQuest = null;
+
+        if (latestHealthLog && latestHealthLog.temperature && latestHealthLog.temperature > 39.2) {
+            // Trường hợp sốt
+            personalizedQuest = {
                 pet_id: pet._id,
                 assigned_date: startOfDay,
-                source_knowledge_id: knowledge._id,
-                title: knowledge.title,
-                description: `${knowledge.recommended_action}\n(Cơ sở y khoa: ${knowledge.medical_fact})`,
-                category: knowledge.category === 'BEHAVIOR' ? 'TRAINING' : knowledge.category,
-                status: 'PENDING',
-                suggested_action: {
-                    has_product: !!knowledge.related_product_metadata?.product_category,
-                    product_query_tag: knowledge.related_product_metadata?.product_category || null
-                }
+                title: `Hạ nhiệt và bù nước cho ${pet.name}`,
+                description: `Thân nhiệt gần nhất là ${latestHealthLog.temperature}°C (Cao). Hãy cho bé nằm phòng mát, bổ sung Oresol pha loãng và chườm ấm nách/bẹn.`,
+                category: 'HEALTH_CARE',
+                status: 'PENDING'
+            };
+        } else if (latestHealthLog && latestHealthLog.heart_rate && (
+            (pet.species === 'DOG' && latestHealthLog.heart_rate > 140) ||
+            (pet.species === 'CAT' && latestHealthLog.heart_rate > 220)
+        )) {
+            // Trường hợp nhịp tim nhanh bất thường lúc nghỉ
+            personalizedQuest = {
+                pet_id: pet._id,
+                assigned_date: startOfDay,
+                title: `Thư giãn giảm nhịp tim cho ${pet.name}`,
+                description: `Nhịp tim gần nhất đo được là ${latestHealthLog.heart_rate} bpm (Cao). Cần tạo không gian yên tĩnh, tránh tiếng ồn lớn và vuốt ve bé nhẹ nhàng.`,
+                category: 'HEALTH_CARE',
+                status: 'PENDING'
+            };
+        } else if (pet.health_status === 'OVERWEIGHT' || (latestHealthLog && pet.weight && latestHealthLog.weight > pet.weight * 1.15)) {
+            // Thừa cân béo phì
+            if (pet.species === 'DOG') {
+                personalizedQuest = {
+                    pet_id: pet._id,
+                    assigned_date: startOfDay,
+                    title: `Đi bộ nhanh giảm cân cho ${pet.name}`,
+                    description: `Thực hiện bài đi bộ nhanh/chạy bộ kéo dài 25-30 phút để đốt mỡ thừa. Giảm nhẹ 10% lượng hạt ăn tối.`,
+                    category: 'HEALTH_CARE',
+                    status: 'PENDING'
+                };
+            } else {
+                personalizedQuest = {
+                    pet_id: pet._id,
+                    assigned_date: startOfDay,
+                    title: `Vận động giảm cân cho ${pet.name}`,
+                    description: `Chơi đùa cùng ${pet.name} bằng cần câu lông vũ hoặc đèn laser 15-20 phút để kích thích bé nhảy và chạy giảm mỡ.`,
+                    category: 'HEALTH_CARE',
+                    status: 'PENDING'
+                };
+            }
+        } else if (pet.health_status === 'UNDERWEIGHT') {
+            // Thiếu cân
+            personalizedQuest = {
+                pet_id: pet._id,
+                assigned_date: startOfDay,
+                title: `Bồi bổ bữa phụ cho ${pet.name}`,
+                description: `Bổ sung bữa phụ giàu đạm (như ức gà luộc xé nhỏ hoặc pate phục hồi) kèm men tiêu hóa để hỗ trợ tăng cân.`,
+                category: 'NUTRITION',
+                status: 'PENDING'
+            };
+        } else if (ageInMonths <= 12) {
+            // Thú non (Dưới 1 tuổi)
+            personalizedQuest = {
+                pet_id: pet._id,
+                assigned_date: startOfDay,
+                title: `Bổ sung Canxi & Tập thói quen`,
+                description: `Bổ sung sữa dinh dưỡng hoặc Canxi Nano vào bữa sáng. Tập phản xạ lăn hoặc bắt bóng nhẹ nhàng cho bé cưng đang phát triển.`,
+                category: 'HEALTH_CARE',
+                status: 'PENDING'
+            };
+        } else if (ageInMonths >= 96) {
+            // Thú già (Trên 8 tuổi)
+            personalizedQuest = {
+                pet_id: pet._id,
+                assigned_date: startOfDay,
+                title: `Chăm sóc xương khớp cho ${pet.name}`,
+                description: `Bổ sung Glucosamine hoặc Omega-3 vào bữa ăn. Thực hiện xoa bóp, mát-xa nhẹ các khớp chân giúp ${pet.name} giảm nhức mỏi khớp.`,
+                category: 'HEALTH_CARE',
+                status: 'PENDING'
+            };
+        } else if (!latestHealthLog || (startOfDay - new Date(latestHealthLog.measured_at)) > 7 * 24 * 60 * 60 * 1000) {
+            // Quá 7 ngày chưa đo sức khỏe
+            personalizedQuest = {
+                pet_id: pet._id,
+                assigned_date: startOfDay,
+                title: `Đo lường sức khỏe cho ${pet.name}`,
+                description: `Đã hơn 7 ngày chưa cập nhật chỉ số sức khỏe của ${pet.name}. Hãy cân cân nặng, kiểm tra nhịp tim và lưu vào Health Dashboard hôm nay nhé.`,
+                category: 'HEALTH_CARE',
+                status: 'PENDING'
+            };
+        } else if (pet.species === 'BIRD') {
+            // Chim cảnh
+            personalizedQuest = {
+                pet_id: pet._id,
+                assigned_date: startOfDay,
+                title: `Vệ sinh cóng nước & Thay kê`,
+                description: `Vệ sinh sạch khay ăn, thay nước mới và bổ sung hạt kê hoặc rau xanh sạch cho ${pet.name}.`,
+                category: 'DAILY_ROUTINE',
+                status: 'PENDING'
+            };
+        }
+
+        if (personalizedQuest) {
+            defaultQuests.push(personalizedQuest);
+        }
+
+        // 2. Lấy một bài VetKnowledge tương ứng loài và thể trạng để tạo nhiệm vụ đặc biệt (Chỉ dành cho VIP)
+        const User = require('../models/User');
+        const owner = await User.findById(pet.owner_id);
+        const ownerPlan = owner ? owner.subscription_plan : 'FREE';
+
+        if (ownerPlan === 'VIP') {
+            const knowledge = await VetKnowledge.findOne({
+                is_active: true,
+                $or: [
+                    { 'target_audience.species': pet.species },
+                    { 'target_audience.species': 'ALL' }
+                ]
             });
+
+            if (knowledge) {
+                defaultQuests.push({
+                    pet_id: pet._id,
+                    assigned_date: startOfDay,
+                    source_knowledge_id: knowledge._id,
+                    title: knowledge.title,
+                    description: `${knowledge.recommended_action}\n(Cơ sở y khoa: ${knowledge.medical_fact})`,
+                    category: knowledge.category === 'BEHAVIOR' ? 'TRAINING' : knowledge.category,
+                    status: 'PENDING',
+                    suggested_action: {
+                        has_product: !!knowledge.related_product_metadata?.product_category,
+                        product_query_tag: knowledge.related_product_metadata?.product_category || null
+                    }
+                });
+            }
         }
 
         // PHÂN CHIA EXP VÀ COIN ĐỂ ĐẢM BẢO TỔNG SỐ KHÔNG ĐỔI MỖI NGÀY (VÀ DO ĐÓ MỖI TUẦN)
@@ -185,6 +298,148 @@ const ensureDailyQuestsForPet = async (pet, date = new Date()) => {
     return quests;
 };
 
+const ensureWeeklyQuestsForPet = async (pet, period = 'WEEKLY', date = new Date()) => {
+    const targetDate = new Date(date);
+    let start, end;
+
+    if (period === 'WEEKLY') {
+        const day = targetDate.getDay();
+        const diff = targetDate.getDate() - (day === 0 ? 6 : day - 1);
+        start = new Date(targetDate.getFullYear(), targetDate.getMonth(), diff, 0, 0, 0, 0);
+        end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000 - 1);
+    } else if (period === 'MONTHLY') {
+        start = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1, 0, 0, 0, 0);
+        end = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0, 23, 59, 59, 999);
+    } else if (period === 'ANNUAL') {
+        start = new Date(targetDate.getFullYear(), 0, 1, 0, 0, 0, 0);
+        end = new Date(targetDate.getFullYear(), 11, 31, 23, 59, 59, 999);
+    } else {
+        period = 'WEEKLY';
+        const day = targetDate.getDay();
+        const diff = targetDate.getDate() - (day === 0 ? 6 : day - 1);
+        start = new Date(targetDate.getFullYear(), targetDate.getMonth(), diff, 0, 0, 0, 0);
+        end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000 - 1);
+    }
+
+    let quests = await WeeklyQuest.find({
+        pet_id: pet._id,
+        period: period,
+        week_start: start
+    });
+
+    if (quests.length === 0) {
+        const listToCreate = [];
+
+        if (period === 'WEEKLY') {
+            listToCreate.push({
+                pet_id: pet._id,
+                week_start: start,
+                week_end: end,
+                title: `Tắm sạch & Chải lông cho ${pet.name}`,
+                description: `Tắm bằng dầu tắm chuyên dụng, sấy thật khô lông và chải lông sạch rác bụi để phòng tránh nấm rận kẽ da.`,
+                category: 'DAILY_ROUTINE',
+                period: 'WEEKLY',
+                reward_xp: 150,
+                reward_coin: 30
+            });
+            listToCreate.push({
+                pet_id: pet._id,
+                week_start: start,
+                week_end: end,
+                title: `Cắt móng & Vệ sinh tai cho ${pet.name}`,
+                description: `Dùng bấm móng chuyên dụng cắt nhẹ phần đầu móng sắc nhọn. Lau sạch vành tai và ống tai bằng nước rửa tai chuyên dụng thấm bông gòn.`,
+                category: 'HEALTH_CARE',
+                period: 'WEEKLY',
+                reward_xp: 100,
+                reward_coin: 20
+            });
+
+            if (pet.species === 'DOG') {
+                listToCreate.push({
+                    pet_id: pet._id,
+                    week_start: start,
+                    week_end: end,
+                    title: `Tắm nắng & Vận động dã ngoại`,
+                    description: `Dành 1 buổi cuối tuần dắt cún cưng đi dã ngoại hoặc chạy bộ ngoài trời đón ánh nắng giúp tổng hợp Vitamin D và giải phóng năng lượng.`,
+                    category: 'DAILY_ROUTINE',
+                    period: 'WEEKLY',
+                    reward_xp: 120,
+                    reward_coin: 25
+                });
+            } else if (pet.species === 'CAT') {
+                listToCreate.push({
+                    pet_id: pet._id,
+                    week_start: start,
+                    week_end: end,
+                    title: `Khử trùng & Phơi nắng khay cát`,
+                    description: `Đổ toàn bộ cát cũ, rửa sạch khay bằng dung dịch sát khuẩn dịu nhẹ, phơi khô dưới nắng giòn 1 tiếng để diệt khuẩn hoàn toàn.`,
+                    category: 'DAILY_ROUTINE',
+                    period: 'WEEKLY',
+                    reward_xp: 120,
+                    reward_coin: 25
+                });
+            }
+        } else if (period === 'MONTHLY') {
+            listToCreate.push({
+                pet_id: pet._id,
+                week_start: start,
+                week_end: end,
+                title: `Tẩy giun định kỳ cho ${pet.name}`,
+                description: `Cho uống thuốc tẩy giun định kỳ theo đúng liều lượng cân nặng của bé. Ghi nhớ ngày tiêm và theo dõi phân trong 24h.`,
+                category: 'HEALTH_CARE',
+                period: 'MONTHLY',
+                reward_xp: 300,
+                reward_coin: 50
+            });
+            listToCreate.push({
+                pet_id: pet._id,
+                week_start: start,
+                week_end: end,
+                title: `Cân đo & Cập nhật thể trạng`,
+                description: `Ghi nhận chính xác Cân nặng, Chiều cao của ${pet.name} lên Health Dashboard để hệ thống đánh giá tiến trình phát triển và điều chỉnh Calo.`,
+                category: 'HEALTH_CARE',
+                period: 'MONTHLY',
+                reward_xp: 150,
+                reward_coin: 30
+            });
+        } else if (period === 'ANNUAL') {
+            listToCreate.push({
+                pet_id: pet._id,
+                week_start: start,
+                week_end: end,
+                title: `Tiêm phòng dại định kỳ cho ${pet.name}`,
+                description: `Đưa bé tới phòng khám thú y để tiêm vaccine phòng dại nhắc lại hằng năm. Cập nhật sổ tiêm vaccine lên ứng dụng.`,
+                category: 'HEALTH_CARE',
+                period: 'ANNUAL',
+                reward_xp: 1000,
+                reward_coin: 100
+            });
+            listToCreate.push({
+                pet_id: pet._id,
+                week_start: start,
+                week_end: end,
+                title: `Khám sức khỏe tổng quát hằng năm`,
+                description: `Đưa bé tới trung tâm y tế thú y làm xét nghiệm máu, siêu âm và kiểm tra răng miệng tổng quát phòng ngừa bệnh mãn tính.`,
+                category: 'HEALTH_CARE',
+                period: 'ANNUAL',
+                reward_xp: 800,
+                reward_coin: 80
+            });
+        }
+
+        await WeeklyQuest.insertMany(listToCreate);
+
+        quests = await WeeklyQuest.find({
+            pet_id: pet._id,
+            period: period,
+            week_start: start
+        });
+    }
+
+    return quests;
+};
+
 module.exports = {
-    ensureDailyQuestsForPet
+    ensureDailyQuestsForPet,
+    ensureWeeklyQuestsForPet
 };

@@ -31,6 +31,19 @@ const parseDob = (dob) => {
 
 // 1. Tạo thú cưng mới
 exports.createPet = catchAsync(async (req, res) => {
+    // Giới hạn số lượng pet cho gói FREE (tối đa 1 pet)
+    const userPlan = req.user.subscription_plan || 'FREE';
+    if (userPlan === 'FREE') {
+        const petCount = await Pet.countDocuments({ owner_id: req.user._id });
+        if (petCount >= 1) {
+            throw new ApiError(
+                httpStatus.PAYMENT_REQUIRED,
+                'Gói Miễn Phí chỉ hỗ trợ lưu trữ tối đa 1 hồ sơ thú cưng. Vui lòng nâng cấp lên gói Premium để lưu trữ không giới hạn.',
+                { code: 'UPGRADE_REQUIRED', required_plan: 'PREMIUM', current_plan: 'FREE' }
+            );
+        }
+    }
+
     const { name, species, breed, dob, weight, gender, is_neutered, health_status } = req.body;
 
     let avatar_url = null;
@@ -222,18 +235,100 @@ exports.deletePet = catchAsync(async (req, res) => {
     });
 });
 
-// 6. Lấy bảng xếp hạng thú cưng theo XP
+// 6. Lấy bảng xếp hạng thú cưng theo XP (hỗ trợ lọc theo Tuần/Tháng)
 exports.getLeaderboard = catchAsync(async (req, res) => {
-    const { species, currentPetId } = req.query;
+    const { species, currentPetId, timeFilter } = req.query;
     const filter = {};
     if (species && species !== 'ALL') {
         filter.species = species.toUpperCase();
     }
 
-    const leaderboard = await Pet.find(filter)
-        .sort({ 'stats.xp': -1 })
-        .limit(20)
-        .populate('owner_id', 'profile.full_name profile.avatar_url');
+    const now = new Date();
+    let startDate = null;
+    if (timeFilter === 'WEEK') {
+        const day = now.getDay();
+        const diff = now.getDate() - (day === 0 ? 6 : day - 1);
+        startDate = new Date(now.getFullYear(), now.getMonth(), diff, 0, 0, 0, 0);
+    } else if (timeFilter === 'MONTH') {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    }
+
+    let leaderboard;
+    if (startDate) {
+        // Lấy bảng xếp hạng dựa trên XP kiếm được trong khoảng thời gian (Tuần/Tháng)
+        leaderboard = await Pet.aggregate([
+            { $match: filter },
+            {
+                $lookup: {
+                    from: 'dailyquests',
+                    let: { petId: '$_id' },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ['$pet_id', '$$petId'] },
+                                        { $eq: ['$status', 'COMPLETED'] },
+                                        { $gte: ['$completed_at', startDate] }
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    as: 'completedQuests'
+                }
+            },
+            {
+                $addFields: {
+                    'stats.xp': { $sum: '$completedQuests.reward_xp' },
+                    'stats.challenges_won': { $size: '$completedQuests' }
+                }
+            },
+            { $sort: { 'stats.xp': -1 } },
+            { $limit: 20 }
+        ]);
+
+        leaderboard = await Pet.populate(leaderboard, {
+            path: 'owner_id',
+            select: 'profile.full_name profile.avatar_url'
+        });
+    } else {
+        // Lấy bảng xếp hạng tổng số XP
+        leaderboard = await Pet.aggregate([
+            { $match: filter },
+            {
+                $lookup: {
+                    from: 'dailyquests',
+                    let: { petId: '$_id' },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ['$pet_id', '$$petId'] },
+                                        { $eq: ['$status', 'COMPLETED'] }
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    as: 'completedQuests'
+                }
+            },
+            {
+                $addFields: {
+                    'stats.challenges_won': { $size: '$completedQuests' }
+                }
+            },
+            { $sort: { 'stats.xp': -1 } },
+            { $limit: 20 }
+        ]);
+
+        leaderboard = await Pet.populate(leaderboard, {
+            path: 'owner_id',
+            select: 'profile.full_name profile.avatar_url'
+        });
+    }
 
     let currentPetRank = null;
     let currentPetData = null;
@@ -242,13 +337,81 @@ exports.getLeaderboard = catchAsync(async (req, res) => {
         try {
             const pet = await Pet.findById(currentPetId);
             if (pet) {
-                const higherXpFilter = { 
-                    ...filter, 
-                    'stats.xp': { $gt: pet.stats?.xp || 0 } 
+                let petXp = pet.stats?.xp || 0;
+                let challengesWon = 0;
+
+                if (startDate) {
+                    const DailyQuest = mongoose.model('DailyQuest');
+                    const completedQuests = await DailyQuest.find({
+                        pet_id: currentPetId,
+                        status: 'COMPLETED',
+                        completed_at: { $gte: startDate }
+                    });
+                    petXp = completedQuests.reduce((sum, q) => sum + (q.reward_xp || 0), 0);
+                    challengesWon = completedQuests.length;
+                } else {
+                    const DailyQuest = mongoose.model('DailyQuest');
+                    challengesWon = await DailyQuest.countDocuments({
+                        pet_id: currentPetId,
+                        status: 'COMPLETED'
+                    });
+                }
+
+                const petObj = pet.toObject();
+                petObj.stats = {
+                    ...petObj.stats,
+                    xp: petXp,
+                    challenges_won: challengesWon
                 };
-                const rankCount = await Pet.countDocuments(higherXpFilter);
-                currentPetRank = rankCount + 1;
-                currentPetData = pet;
+                currentPetData = petObj;
+
+                if (startDate) {
+                    const rankAggregate = await Pet.aggregate([
+                        { $match: filter },
+                        {
+                            $lookup: {
+                                from: 'dailyquests',
+                                let: { petId: '$_id' },
+                                pipeline: [
+                                    {
+                                        $match: {
+                                            $expr: {
+                                                $and: [
+                                                    { $eq: ['$pet_id', '$$petId'] },
+                                                    { $eq: ['$status', 'COMPLETED'] },
+                                                    { $gte: ['$completed_at', startDate] }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                ],
+                                as: 'completedQuests'
+                            }
+                        },
+                        {
+                            $addFields: {
+                                periodXp: { $sum: '$completedQuests.reward_xp' }
+                            }
+                        },
+                        {
+                            $match: {
+                                periodXp: { $gt: petXp }
+                            }
+                        },
+                        {
+                            $count: 'count'
+                        }
+                    ]);
+                    const higherCount = rankAggregate.length > 0 ? rankAggregate[0].count : 0;
+                    currentPetRank = higherCount + 1;
+                } else {
+                    const higherXpFilter = {
+                        ...filter,
+                        'stats.xp': { $gt: petXp }
+                    };
+                    const rankCount = await Pet.countDocuments(higherXpFilter);
+                    currentPetRank = rankCount + 1;
+                }
             }
         } catch (err) {
             console.error('Error calculating current pet rank:', err);
@@ -257,7 +420,7 @@ exports.getLeaderboard = catchAsync(async (req, res) => {
 
     res.json({
         success: true,
-        data: { 
+        data: {
             leaderboard,
             currentPetRank,
             currentPetData

@@ -96,7 +96,37 @@ exports.getDailyQuests = catchAsync(async (req, res) => {
     }
 
     const { ensureDailyQuestsForPet } = require('../utils/questHelper');
-    const quests = await ensureDailyQuestsForPet(pet, date);
+    let quests = await ensureDailyQuestsForPet(pet, date);
+
+    // Kiểm tra khóa bữa ăn tiếp theo sau 5 tiếng
+    const completedNutritions = quests.filter(q => q.category === 'NUTRITION' && q.status === 'COMPLETED');
+    if (completedNutritions.length > 0) {
+        const latestCompleted = completedNutritions.reduce((latest, current) => {
+            const latestTime = new Date(latest.completed_at).getTime();
+            const currentTime = new Date(current.completed_at).getTime();
+            return currentTime > latestTime ? current : latest;
+        });
+
+        if (latestCompleted && latestCompleted.completed_at) {
+            const fiveHoursMs = 5 * 60 * 60 * 1000;
+            const completedTime = new Date(latestCompleted.completed_at).getTime();
+            const timePassed = Date.now() - completedTime;
+            if (timePassed < fiveHoursMs) {
+                const remainingMs = fiveHoursMs - timePassed;
+                const remainingHours = Math.ceil(remainingMs / (1000 * 60 * 60));
+                const unlocksAt = completedTime + fiveHoursMs;
+                quests = quests.map(q => {
+                    const qObj = q.toObject ? q.toObject() : q;
+                    if (qObj.category === 'NUTRITION' && qObj.status === 'PENDING') {
+                        qObj.isLocked = true;
+                        qObj.lockMessage = `Mở khóa sau ${remainingHours} giờ`;
+                        qObj.unlocksAt = new Date(unlocksAt).toISOString();
+                    }
+                    return qObj;
+                });
+            }
+        }
+    }
 
     res.json({
         success: true,
@@ -131,6 +161,30 @@ exports.completeQuest = catchAsync(async (req, res) => {
         throw new ApiError(httpStatus.BAD_REQUEST, 'Nhiệm vụ đã được hoàn thành trước đó');
     }
 
+    // Kiểm tra khóa bữa ăn tiếp theo sau 5 tiếng
+    if (quest.category === 'NUTRITION') {
+        const completedNutritions = await DailyQuest.find({
+            pet_id: quest.pet_id,
+            category: 'NUTRITION',
+            status: 'COMPLETED',
+            assigned_date: quest.assigned_date,
+            _id: { $ne: quest._id }
+        });
+        if (completedNutritions.length > 0) {
+            const latestCompleted = completedNutritions.reduce((latest, current) => {
+                const latestTime = new Date(latest.completed_at).getTime();
+                const currentTime = new Date(current.completed_at).getTime();
+                return currentTime > latestTime ? current : latest;
+            });
+            const fiveHoursMs = 5 * 60 * 60 * 1000;
+            const timePassed = Date.now() - new Date(latestCompleted.completed_at).getTime();
+            if (timePassed < fiveHoursMs) {
+                const remainingHours = Math.ceil((fiveHoursMs - timePassed) / (1000 * 60 * 60));
+                throw new ApiError(httpStatus.BAD_REQUEST, `Chưa đến giờ ăn tiếp theo. Vui lòng đợi thêm ${remainingHours} giờ.`);
+            }
+        }
+    }
+
     // Cập nhật trạng thái quest
     quest.status = 'COMPLETED';
     quest.completed_by_user_id = req.user._id;
@@ -142,7 +196,6 @@ exports.completeQuest = catchAsync(async (req, res) => {
     pet.stats.xp += quest.reward_xp;
     
     // Công thức tăng cấp: level * 100 + 800 XP để lên cấp tiếp theo.
-    // Thí dụ: level 1 cần 900 XP, level 12 cần 2000 XP.
     let xpNeeded = pet.stats.level * 100 + 800;
     let leveledUp = false;
     
@@ -156,31 +209,37 @@ exports.completeQuest = catchAsync(async (req, res) => {
     // Tăng nhẹ mood và energy khi hoàn thành nhiệm vụ
     pet.stats.mood = Math.min(100, pet.stats.mood + 5);
     pet.markModified('stats');
-    await pet.save();
 
     // Cộng tiền xu (Coins) cho chủ sở hữu
     const coinsReward = quest.reward_coin !== undefined ? quest.reward_coin : 10;
     const user = await User.findById(req.user._id);
     if (user) {
         user.coins = (user.coins || 0) + coinsReward;
+        
+        // Cập nhật tiến trình thành tựu (in-memory)
+        const { updateAchievementProgress } = require('../utils/achievementHelper');
+        const unlockedAchievements = await updateAchievementProgress(user, pet, quest);
+        
         await user.save();
-    }
+        await pet.save();
 
-    res.json({
-        success: true,
-        message: 'Hoàn thành nhiệm vụ thành công! 🎉',
-        data: {
-            quest,
-            rewards: {
-                xp: quest.reward_xp,
-                coins: coinsReward,
-                leveledUp,
-                currentLevel: pet.stats.level,
-                currentXp: pet.stats.xp,
-                nextLevelXp: xpNeeded
+        res.json({
+            success: true,
+            message: 'Hoàn thành nhiệm vụ thành công! 🎉',
+            data: {
+                quest,
+                unlockedAchievements,
+                rewards: {
+                    xp: quest.reward_xp,
+                    coins: coinsReward,
+                    leveledUp: pet.stats.level > originalLevel,
+                    currentLevel: pet.stats.level,
+                    currentXp: pet.stats.xp,
+                    nextLevelXp: pet.stats.level * 100 + 800
+                }
             }
-        }
-    });
+        });
+    }
 });
 
 // Lấy chi tiết một nhiệm vụ

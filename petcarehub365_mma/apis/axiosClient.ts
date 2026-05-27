@@ -107,13 +107,19 @@ axiosClient.interceptors.response.use(
                 } else {
                     throw new Error('Refresh failed on server');
                 }
-            } catch (refreshError) {
+            } catch (refreshError: any) {
                 console.error('Token refresh failed:', refreshError);
                 processQueue(refreshError, null);
-                await removeStorageItem('tokens');
-                await removeStorageItem('user');
-                if (router) {
-                    router.replace('/login');
+                
+                // Chỉ xóa session và bắt đăng nhập lại nếu server phản hồi lỗi xác thực rõ ràng (401, 403, 400)
+                // Nếu là lỗi mạng (refreshError.response không tồn tại), giữ nguyên session để user không bị out
+                const status = refreshError.response?.status;
+                if (status === 401 || status === 403 || status === 400) {
+                    await removeStorageItem('tokens');
+                    await removeStorageItem('user');
+                    if (router) {
+                        router.replace('/login');
+                    }
                 }
                 return Promise.reject(refreshError);
             } finally {

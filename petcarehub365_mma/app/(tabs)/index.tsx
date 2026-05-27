@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, useColorScheme, Image, ActivityIndicator, Platform } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, useColorScheme, Image, ActivityIndicator, Platform, Modal, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
@@ -28,6 +28,49 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [layoutMode, setLayoutMode] = useState<'single' | 'multi'>('multi');
   const [currentUser, setCurrentUser] = useState<any>(null);
+
+  // Custom Alert Modal state
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const alertScale = React.useRef(new Animated.Value(0.9)).current;
+
+  const showAlert = (title: string, msg: string) => {
+    setAlertTitle(title);
+    setAlertMessage(msg);
+    setAlertVisible(true);
+    alertScale.setValue(0.9);
+    Animated.spring(alertScale, {
+      toValue: 1,
+      friction: 6,
+      tension: 40,
+      useNativeDriver: true
+    }).start();
+  };
+
+  // Real-time countdown timer state
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSeconds(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const getCountdownText = (unlocksAtISO: string) => {
+    if (!unlocksAtISO) return 'Bị khóa';
+    const target = new Date(unlocksAtISO).getTime();
+    const now = Date.now();
+    const diff = target - now;
+    if (diff <= 0) return 'Sẵn sàng';
+    
+    const h = Math.floor(diff / (1000 * 60 * 60));
+    const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const s = Math.floor((diff % (1000 * 60)) / 1000);
+    
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${pad(h)}:${pad(m)}:${pad(s)}`;
+  };
 
   // Hàm load danh sách thú cưng và nhiệm vụ tương ứng
   const loadData = async () => {
@@ -326,6 +369,7 @@ export default function HomeScreen() {
                     <Text style={styles.emptyText}>Không có nhiệm vụ nào cho hôm nay.</Text>
                   ) : (
                     quests.map((quest) => {
+                      const isLocked = !!quest.isLocked;
                       const isDone = quest.status === 'COMPLETED';
                       const isWorking = quest.status === 'IN_PROGRESS';
                       
@@ -335,7 +379,13 @@ export default function HomeScreen() {
                       let iconColor = '#FFA500';
                       let iconBg = '#FFF3E0';
 
-                      if (isDone) {
+                      if (isLocked) {
+                        const countdown = quest.unlocksAt ? getCountdownText(quest.unlocksAt) : '5h cooldown';
+                        statusText = `BỊ KHÓA (${countdown})`;
+                        iconName = 'lock-closed';
+                        iconColor = '#8A9AA9';
+                        iconBg = '#F3F4F6';
+                      } else if (isDone) {
                         progressPercent = 100;
                         statusText = 'TRẠNG THÁI: HOÀN THÀNH';
                       } else if (isWorking) {
@@ -343,24 +393,40 @@ export default function HomeScreen() {
                         statusText = 'TRẠNG THÁI: ĐANG THỰC HIỆN';
                       }
 
-                      if (quest.category === 'DAILY_ROUTINE' || quest.title.includes('dạo')) {
-                        iconName = 'walk';
-                        iconColor = '#2F80ED';
-                        iconBg = '#E2F0FF';
-                      } else if (quest.category === 'TRAINING' || quest.title.includes('lông') || quest.title.includes('Chải')) {
-                        iconName = 'cut';
-                        iconColor = '#9B51E0';
-                        iconBg = '#F3E5F5';
+                      if (!isLocked) {
+                        if (quest.category === 'DAILY_ROUTINE' || quest.title.includes('dạo')) {
+                          iconName = 'walk';
+                          iconColor = '#2F80ED';
+                          iconBg = '#E2F0FF';
+                        } else if (quest.category === 'TRAINING' || quest.title.includes('lông') || quest.title.includes('Chải')) {
+                          iconName = 'cut';
+                          iconColor = '#9B51E0';
+                          iconBg = '#F3E5F5';
+                        } else if (quest.category === 'HEALTH_CARE') {
+                          iconName = 'heart-sharp';
+                          iconColor = '#EC4B4B';
+                          iconBg = '#FFF0F0';
+                        }
                       }
 
                       return (
                         <TouchableOpacity 
                           key={quest._id} 
-                          style={styles.taskCard}
-                          onPress={() => router.push({
-                            pathname: '/mission-detail',
-                            params: { questId: quest._id }
-                          } as any)}
+                          style={[styles.taskCard, isLocked && { opacity: 0.6 }]}
+                          onPress={() => {
+                            if (isLocked) {
+                              const remainingTime = quest.unlocksAt ? getCountdownText(quest.unlocksAt) : '5 giờ';
+                              showAlert(
+                                'Bữa ăn đang khóa 🔒',
+                                `Khoảng cách giữa các bữa ăn dinh dưỡng phải cách nhau ít nhất 5 giờ. Vui lòng đợi thêm ${remainingTime} nữa.`
+                              );
+                            } else {
+                              router.push({
+                                pathname: '/mission-detail',
+                                params: { questId: quest._id }
+                              } as any);
+                            }
+                          }}
                         >
                           <View style={styles.taskTopRow}>
                             <View style={[styles.taskIconCircle, { backgroundColor: iconBg }]}>
@@ -368,7 +434,9 @@ export default function HomeScreen() {
                             </View>
                             <View style={styles.taskMeta}>
                               <Text style={styles.taskTitleText}>{quest.title}</Text>
-                              <Text style={styles.taskDescText}>{quest.description}</Text>
+                              <Text style={styles.taskDescText}>
+                                {isLocked ? `Chưa đến giờ ăn tiếp theo. Mở khóa sau: ${quest.unlocksAt ? getCountdownText(quest.unlocksAt) : '5 giờ'}` : quest.description}
+                              </Text>
                               
                               <View style={styles.rewardsRow}>
                                 <View style={styles.rewardXpBadge}>
@@ -382,8 +450,12 @@ export default function HomeScreen() {
                               </View>
                             </View>
                             
-                            {/* Done checkmark or solid grey circle */}
-                            {isDone ? (
+                            {/* Done checkmark, lock icon or solid grey circle */}
+                            {isLocked ? (
+                              <View style={[styles.taskCheckWrapper, { backgroundColor: '#ECEFF1' }]}>
+                                <Ionicons name="lock-closed" size={12} color="#8A9AA9" />
+                              </View>
+                            ) : isDone ? (
                               <View style={[styles.taskCheckWrapper, styles.taskCheckWrapperActive]}>
                                 <Ionicons name="checkmark" size={14} color="#fff" />
                               </View>
@@ -535,6 +607,27 @@ export default function HomeScreen() {
 
         </ScrollView>
       )}
+
+      {/* BEAUTIFUL CUSTOM ALERT MODAL */}
+      <Modal
+        visible={alertVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setAlertVisible(false)}
+      >
+        <View style={styles.alertOverlay}>
+          <Animated.View style={[styles.alertCard, { transform: [{ scale: alertScale }] }]}>
+            <View style={[styles.alertIconCircle, { backgroundColor: '#FFF0F0' }]}>
+              <Ionicons name="lock-closed" size={32} color="#EC4B4B" />
+            </View>
+            <Text style={styles.alertTitle}>{alertTitle}</Text>
+            <Text style={styles.alertMessage}>{alertMessage}</Text>
+            <TouchableOpacity style={styles.alertBtn} onPress={() => setAlertVisible(false)}>
+              <Text style={styles.alertBtnText}>Đồng ý</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -858,5 +951,69 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
     color: '#FFB000',
-  }
+  },
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(27, 37, 48, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  alertCard: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxWidth: 320,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#FFEBEB',
+  },
+  alertIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  alertTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1B2530',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  alertMessage: {
+    fontSize: 13,
+    color: '#8A9AA9',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 20,
+    fontWeight: '500',
+    paddingHorizontal: 8,
+  },
+  alertBtn: {
+    backgroundColor: '#EC4B4B',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 20,
+    width: '100%',
+    alignItems: 'center',
+    shadowColor: '#EC4B4B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  alertBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
 });

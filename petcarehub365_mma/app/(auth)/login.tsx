@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator,
@@ -11,8 +11,28 @@ export default function LoginScreen() {
   const { login } = useAuth();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const loadSavedCredentials = async () => {
+      try {
+        const storage = require('../../utils/storage');
+        const savedRemember = await storage.getStorageItem('remember_me');
+        if (savedRemember === 'true') {
+          setRememberMe(true);
+          const savedEmail = await storage.getStorageItem('saved_email');
+          const savedPass = await storage.getStorageItem('saved_password');
+          if (savedEmail) setIdentifier(savedEmail);
+          if (savedPass) setPassword(savedPass);
+        }
+      } catch (e) {
+        console.error('Lỗi khi tải thông tin ghi nhớ mật khẩu:', e);
+      }
+    };
+    loadSavedCredentials();
+  }, []);
 
   const handleLogin = async () => {
     if (!identifier || !password) {
@@ -23,7 +43,19 @@ export default function LoginScreen() {
     const result = await login(identifier, password);
     setLoading(false);
     if (result?.success) {
-      const userStr = await require('../../utils/storage').getStorageItem('user');
+      // Lưu hoặc xóa thông tin đăng nhập tùy theo trạng thái check ghi nhớ
+      const storage = require('../../utils/storage');
+      if (rememberMe) {
+        await storage.setStorageItem('remember_me', 'true');
+        await storage.setStorageItem('saved_email', identifier);
+        await storage.setStorageItem('saved_password', password);
+      } else {
+        await storage.setStorageItem('remember_me', 'false');
+        await storage.removeStorageItem('saved_email');
+        await storage.removeStorageItem('saved_password');
+      }
+
+      const userStr = await storage.getStorageItem('user');
       const user = userStr ? JSON.parse(userStr) : null;
       if (!user?.profile?.full_name) {
           router.replace('/(setup)/profile-setup');
@@ -83,9 +115,22 @@ export default function LoginScreen() {
               />
           </View>
 
-          <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password')} style={styles.forgotPass}>
-            <Text style={styles.forgotPassText}>Quên mật khẩu</Text>
-          </TouchableOpacity>
+          <View style={styles.rememberRow}>
+            <TouchableOpacity 
+              style={styles.checkboxContainer} 
+              onPress={() => setRememberMe(!rememberMe)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                {rememberMe && <FontAwesome name="check" size={10} color="#fff" />}
+              </View>
+              <Text style={styles.rememberText}>Ghi nhớ mật khẩu</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password')}>
+              <Text style={styles.forgotPassText}>Quên mật khẩu?</Text>
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Đăng nhập</Text>}
@@ -163,7 +208,37 @@ const styles = StyleSheet.create({
     fontSize: 15, 
     color: '#1A2E35' 
   },
-  forgotPass: { alignSelf: 'flex-end', marginBottom: 24 },
+  rememberRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+    width: '100%',
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#EAEAEA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+    backgroundColor: '#fff',
+  },
+  checkboxChecked: {
+    backgroundColor: '#FF3B30',
+    borderColor: '#FF3B30',
+  },
+  rememberText: {
+    fontSize: 13,
+    color: '#8F9CA3',
+    fontWeight: '500',
+  },
   forgotPassText: { color: '#FF3B30', fontSize: 13, fontWeight: '600' },
   button: { 
     backgroundColor: '#FF3B30', 

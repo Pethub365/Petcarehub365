@@ -66,7 +66,17 @@ const userSchema = new mongoose.Schema({
     default: null
   },
   lock_until: Date,
-  password_changed_at: Date
+  password_changed_at: Date,
+  // Denormalized từ Subscription để check quyền nhanh không cần join
+  subscription_plan: {
+    type: String,
+    enum: ['FREE', 'PREMIUM', 'VIP'],
+    default: 'FREE',
+  },
+  subscription_expires_at: {
+    type: Date,
+    default: null,
+  },
 }, {
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
 });

@@ -6,6 +6,8 @@ const notificationRoute = require('./notification.route');
 const uploadRoute = require('./upload.route');
 const petRoute = require('./pet.route');
 const dailyQuestRoute = require('./dailyQuest.route');
+const weeklyQuestRoute = require('./weeklyQuest.route');
+const achievementRoute = require('./achievement.route');
 const healthRoute = require('./health.route');
 const familyRoute = require('./family.route');
 const subscriptionRoute = require('./subscription.route');
@@ -31,6 +33,8 @@ const defaultRoutes = [
     { path: '/upload', route: uploadRoute },
     { path: '/pets', route: petRoute },
     { path: '/daily-quests', route: dailyQuestRoute },
+    { path: '/weekly-quests', route: weeklyQuestRoute },
+    { path: '/achievements', route: achievementRoute },
 ];
 
 defaultRoutes.forEach((route) => {

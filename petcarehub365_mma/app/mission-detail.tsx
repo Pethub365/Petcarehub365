@@ -185,6 +185,7 @@ export default function MissionDetailScreen() {
     coins: number;
     leveledUp: boolean;
     currentLevel?: number;
+    unlockedAchievements?: string[];
   } | null>(null);
 
   const handleCloseSuccessModal = () => {
@@ -197,6 +198,49 @@ export default function MissionDetailScreen() {
   const [questsList, setQuestsList] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly' | 'annual'>('daily');
   const [loading, setLoading] = useState(true);
+
+  // Custom Alert Modal state
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const alertScale = React.useRef(new Animated.Value(0.9)).current;
+
+  const showAlert = (title: string, msg: string) => {
+    setAlertTitle(title);
+    setAlertMessage(msg);
+    setAlertVisible(true);
+    alertScale.setValue(0.9);
+    Animated.spring(alertScale, {
+      toValue: 1,
+      friction: 6,
+      tension: 40,
+      useNativeDriver: true
+    }).start();
+  };
+
+  // Real-time countdown timer state
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSeconds(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const getCountdownText = (unlocksAtISO: string) => {
+    if (!unlocksAtISO) return 'Bị khóa';
+    const target = new Date(unlocksAtISO).getTime();
+    const now = Date.now();
+    const diff = target - now;
+    if (diff <= 0) return 'Sẵn sàng';
+    
+    const h = Math.floor(diff / (1000 * 60 * 60));
+    const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const s = Math.floor((diff % (1000 * 60)) / 1000);
+    
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${pad(h)}:${pad(m)}:${pad(s)}`;
+  };
 
   const bgColors = {
       main: '#FAF9F9',
@@ -220,6 +264,12 @@ export default function MissionDetailScreen() {
       }
     }, [questId, isDetailMode])
   );
+
+  React.useEffect(() => {
+    if (!isDetailMode) {
+      loadMissionsList();
+    }
+  }, [activeTab]);
 
   const loadQuestDetail = async () => {
     const idStr = String(questId);
@@ -256,6 +306,54 @@ export default function MissionDetailScreen() {
           category: 'TRAINING',
           status: 'PENDING',
           reward_xp: 50
+        },
+        {
+          _id: 'mock_w1',
+          title: 'Tắm cho thú cưng',
+          description: 'Chưa hoàn thành • 0/1',
+          category: 'DAILY_ROUTINE',
+          status: 'PENDING',
+          reward_xp: 150
+        },
+        {
+          _id: 'mock_w2',
+          title: 'Cắt móng & Vệ sinh tai',
+          description: 'Hoàn thành • 1/1',
+          category: 'HEALTH_CARE',
+          status: 'COMPLETED',
+          reward_xp: 100
+        },
+        {
+          _id: 'mock_m1',
+          title: 'Tẩy giun định kỳ',
+          description: 'Chưa hoàn thành • 0/1',
+          category: 'HEALTH_CARE',
+          status: 'PENDING',
+          reward_xp: 300
+        },
+        {
+          _id: 'mock_m2',
+          title: 'Cân đo & Cập nhật thể trạng',
+          description: 'Hoàn thành • 1/1',
+          category: 'HEALTH_CARE',
+          status: 'COMPLETED',
+          reward_xp: 150
+        },
+        {
+          _id: 'mock_a1',
+          title: 'Tiêm phòng dại định kỳ',
+          description: 'Chưa hoàn thành • Hạn còn 2 tháng',
+          category: 'HEALTH_CARE',
+          status: 'PENDING',
+          reward_xp: 1000
+        },
+        {
+          _id: 'mock_a2',
+          title: 'Khám sức khỏe tổng quát',
+          description: 'Chưa hoàn thành • Hạn còn 6 tháng',
+          category: 'HEALTH_CARE',
+          status: 'PENDING',
+          reward_xp: 800
         }
       ];
       const found = allMockQuests.find(q => q._id === idStr) || allMockQuests[3];
@@ -266,9 +364,16 @@ export default function MissionDetailScreen() {
 
     try {
       setLoading(true);
-      const res = await dailyQuestApi.getQuestById(idStr) as any;
-      if (res && res.success) {
+      let res = await dailyQuestApi.getQuestById(idStr).catch(() => null) as any;
+      if (res && res.success && res.data.quest) {
         setQuest(res.data.quest);
+      } else {
+        res = await dailyQuestApi.getWeeklyQuestById(idStr).catch(() => null) as any;
+        if (res && res.success && res.data.quest) {
+          setQuest(res.data.quest);
+        } else {
+          Alert.alert('Lỗi', 'Không thể tải thông tin nhiệm vụ.');
+        }
       }
     } catch (error) {
       console.error('Error loading quest detail:', error);
@@ -293,7 +398,18 @@ export default function MissionDetailScreen() {
         
         if (activePet) {
           setSelectedPet(activePet);
-          const qRes = await dailyQuestApi.getDailyQuests(activePet._id) as any;
+          let qRes;
+          if (activeTab === 'daily') {
+            qRes = await dailyQuestApi.getDailyQuests(activePet._id) as any;
+          } else {
+            const periodMap = {
+              weekly: 'WEEKLY',
+              monthly: 'MONTHLY',
+              annual: 'ANNUAL'
+            } as const;
+            const apiPeriod = periodMap[activeTab];
+            qRes = await dailyQuestApi.getWeeklyQuests(activePet._id, apiPeriod) as any;
+          }
           if (qRes && qRes.success) {
             setQuestsList(qRes.data.quests || []);
           }
@@ -319,32 +435,92 @@ export default function MissionDetailScreen() {
       avatar_url: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?q=80&w=200',
       stats: { level: 12, xp: 1200 }
     });
-    setQuestsList([
-      {
-        _id: 'mock_q1',
-        title: 'Đi dạo buổi sáng',
-        description: 'Hoàn thành • 30 mins',
-        category: 'DAILY_ROUTINE',
-        status: 'COMPLETED',
-        reward_xp: 50
-      },
-      {
-        _id: 'mock_q2',
-        title: 'Cho thú cưng ăn 3 buổi',
-        description: 'Chưa hoàn thành • 1/3',
-        category: 'NUTRITION',
-        status: 'PENDING',
-        reward_xp: 30
-      },
-      {
-        _id: 'mock_q3',
-        title: 'Chơi với Pet 20 phút',
-        description: 'Chưa hoàn thành • 0/20p',
-        category: 'TRAINING',
-        status: 'PENDING',
-        reward_xp: 20
-      }
-    ]);
+    
+    if (activeTab === 'daily') {
+      setQuestsList([
+        {
+          _id: 'mock_q1',
+          title: 'Đi dạo buổi sáng',
+          description: 'Hoàn thành • 30 mins',
+          category: 'DAILY_ROUTINE',
+          status: 'COMPLETED',
+          reward_xp: 50
+        },
+        {
+          _id: 'mock_q2',
+          title: 'Cho thú cưng ăn 3 buổi',
+          description: 'Chưa hoàn thành • 1/3',
+          category: 'NUTRITION',
+          status: 'PENDING',
+          reward_xp: 30
+        },
+        {
+          _id: 'mock_q3',
+          title: 'Chơi với Pet 20 phút',
+          description: 'Chưa hoàn thành • 0/20p',
+          category: 'TRAINING',
+          status: 'PENDING',
+          reward_xp: 20
+        }
+      ]);
+    } else if (activeTab === 'weekly') {
+      setQuestsList([
+        {
+          _id: 'mock_w1',
+          title: 'Tắm cho thú cưng',
+          description: 'Chưa hoàn thành • 0/1',
+          category: 'DAILY_ROUTINE',
+          status: 'PENDING',
+          reward_xp: 150
+        },
+        {
+          _id: 'mock_w2',
+          title: 'Cắt móng & Vệ sinh tai',
+          description: 'Hoàn thành • 1/1',
+          category: 'HEALTH_CARE',
+          status: 'COMPLETED',
+          reward_xp: 100
+        }
+      ]);
+    } else if (activeTab === 'monthly') {
+      setQuestsList([
+        {
+          _id: 'mock_m1',
+          title: 'Tẩy giun định kỳ',
+          description: 'Chưa hoàn thành • 0/1',
+          category: 'HEALTH_CARE',
+          status: 'PENDING',
+          reward_xp: 300
+        },
+        {
+          _id: 'mock_m2',
+          title: 'Cân đo & Cập nhật thể trạng',
+          description: 'Hoàn thành • 1/1',
+          category: 'HEALTH_CARE',
+          status: 'COMPLETED',
+          reward_xp: 150
+        }
+      ]);
+    } else if (activeTab === 'annual') {
+      setQuestsList([
+        {
+          _id: 'mock_a1',
+          title: 'Tiêm phòng dại định kỳ',
+          description: 'Chưa hoàn thành • Hạn còn 2 tháng',
+          category: 'HEALTH_CARE',
+          status: 'PENDING',
+          reward_xp: 1000
+        },
+        {
+          _id: 'mock_a2',
+          title: 'Khám sức khỏe tổng quát',
+          description: 'Chưa hoàn thành • Hạn còn 6 tháng',
+          category: 'HEALTH_CARE',
+          status: 'PENDING',
+          reward_xp: 800
+        }
+      ]);
+    }
   };
 
   const handleComplete = async () => {
@@ -370,19 +546,26 @@ export default function MissionDetailScreen() {
 
     try {
       setCompleting(true);
-      const res = await dailyQuestApi.completeQuest(quest._id) as any;
+      let res;
+      if (quest.period && quest.period !== 'DAILY') {
+        res = await dailyQuestApi.completeWeeklyQuest(quest._id) as any;
+      } else {
+        res = await dailyQuestApi.completeQuest(quest._id) as any;
+      }
       if (res && res.success) {
         const { rewards } = res.data;
+        const unlockedAchievements = res.data.unlockedAchievements || [];
         setSuccessRewards({
           xp: rewards.xp,
           coins: rewards.coins,
           leveledUp: rewards.leveledUp,
-          currentLevel: rewards.currentLevel
+          currentLevel: rewards.currentLevel,
+          unlockedAchievements
         });
         setShowSuccessModal(true);
       }
     } catch (error: any) {
-      Alert.alert('Lỗi', error.response?.data?.message || 'Có lỗi xảy ra khi hoàn thành nhiệm vụ');
+      showAlert('Lỗi ⚠️', error.response?.data?.message || 'Có lỗi xảy ra khi hoàn thành nhiệm vụ');
     } finally {
       setCompleting(false);
     }
@@ -407,6 +590,21 @@ export default function MissionDetailScreen() {
     }
 
     switch (category) {
+      case 'HEALTH_CARE':
+        return [
+          {
+            title: 'Kiểm tra tình trạng',
+            desc: 'Xem kỹ biểu hiện lâm sàng hoặc chỉ số sức khỏe của bé để có biện pháp phù hợp.'
+          },
+          {
+            title: 'Chăm sóc y khoa nhẹ nhàng',
+            desc: 'Thực hiện thao tác mát-xa khớp, bù nước điện giải, hạ nhiệt hoặc tập thể dục nhẹ nhàng tùy theo chỉ số.'
+          },
+          {
+            title: 'Theo dõi & Cập nhật',
+            desc: 'Tiếp tục theo dõi các phản ứng của bé và ghi chép lại các thông số mới nếu cần.'
+          }
+        ];
       case 'NUTRITION':
         return [
           {
@@ -589,60 +787,6 @@ export default function MissionDetailScreen() {
   const renderListMode = () => {
     // Determine the list items based on active tab
     let displayedQuests = questsList;
-    if (activeTab === 'weekly') displayedQuests = [
-      {
-        _id: 'mock_w1',
-        title: 'Tắm cho thú cưng',
-        description: 'Chưa hoàn thành • 0/1',
-        category: 'DAILY_ROUTINE',
-        status: 'PENDING',
-        reward_xp: 150
-      },
-      {
-        _id: 'mock_w2',
-        title: 'Cắt móng & Vệ sinh tai',
-        description: 'Hoàn thành • 1/1',
-        category: 'HEALTH_CARE',
-        status: 'COMPLETED',
-        reward_xp: 100
-      }
-    ];
-    else if (activeTab === 'monthly') displayedQuests = [
-      {
-        _id: 'mock_m1',
-        title: 'Tẩy giun định kỳ',
-        description: 'Chưa hoàn thành • 0/1',
-        category: 'HEALTH_CARE',
-        status: 'PENDING',
-        reward_xp: 300
-      },
-      {
-        _id: 'mock_m2',
-        title: 'Cân đo & Cập nhật thể trạng',
-        description: 'Hoàn thành • 1/1',
-        category: 'HEALTH_CARE',
-        status: 'COMPLETED',
-        reward_xp: 150
-      }
-    ];
-    else if (activeTab === 'annual') displayedQuests = [
-      {
-        _id: 'mock_a1',
-        title: 'Tiêm phòng dại định kỳ',
-        description: 'Chưa hoàn thành • Hạn còn 2 tháng',
-        category: 'HEALTH_CARE',
-        status: 'PENDING',
-        reward_xp: 1000
-      },
-      {
-        _id: 'mock_a2',
-        title: 'Khám sức khỏe tổng quát',
-        description: 'Chưa hoàn thành • Hạn còn 6 tháng',
-        category: 'HEALTH_CARE',
-        status: 'PENDING',
-        reward_xp: 800
-      }
-    ];
 
     const currentLevel = selectedPet?.stats?.level || 12;
     const currentXp = selectedPet?.stats?.xp || 1200;
@@ -718,6 +862,7 @@ export default function MissionDetailScreen() {
               <Text style={styles.emptyText}>Không có nhiệm vụ nào.</Text>
             ) : (
               displayedQuests.map((item) => {
+                const isLocked = !!item.isLocked;
                 const isCompleted = item.status === 'COMPLETED';
                 let coinReward = item.reward_coin !== undefined ? item.reward_coin : 10;
                 if (item._id?.startsWith('mock_')) {
@@ -728,27 +873,40 @@ export default function MissionDetailScreen() {
                 return (
                   <TouchableOpacity
                     key={item._id}
-                    style={styles.questCard}
+                    style={[styles.questCard, isLocked && { opacity: 0.6 }]}
                     onPress={() => {
-                      // Navigate to detail mode
-                      router.push({
-                        pathname: '/mission-detail',
-                        params: { questId: item._id }
-                      } as any);
+                      if (isLocked) {
+                        const remainingTime = item.unlocksAt ? getCountdownText(item.unlocksAt) : '5 giờ';
+                        showAlert(
+                          'Bữa ăn đang khóa 🔒',
+                          `Khoảng cách giữa các bữa ăn dinh dưỡng phải cách nhau ít nhất 5 giờ. Vui lòng đợi thêm ${remainingTime} nữa.`
+                        );
+                      } else {
+                        // Navigate to detail mode
+                        router.push({
+                          pathname: '/mission-detail',
+                          params: { questId: item._id }
+                        } as any);
+                      }
                     }}
                   >
                     <View style={styles.questCardLeft}>
                       <View style={[
                         styles.checkbox, 
+                        isLocked ? { borderColor: '#B0BEC5', backgroundColor: '#ECEFF1' } :
                         isCompleted ? styles.checkboxChecked : styles.checkboxPending
                       ]}>
-                        {isCompleted && (
+                        {isLocked ? (
+                          <Ionicons name="lock-closed" size={12} color="#8A9AA9" />
+                        ) : isCompleted ? (
                           <Ionicons name="checkmark" size={12} color={bgColors.accentRed} />
-                        )}
+                        ) : null}
                       </View>
                       <View style={styles.questInfo}>
                         <Text style={styles.questTitleText}>{item.title}</Text>
-                        <Text style={styles.questDescText}>{item.description}</Text>
+                        <Text style={styles.questDescText}>
+                          {isLocked ? `Chưa đến giờ ăn tiếp theo. ${item.lockMessage || ''}` : item.description}
+                        </Text>
                       </View>
                     </View>
 
@@ -843,11 +1001,52 @@ export default function MissionDetailScreen() {
               </View>
             )}
 
+            {/* Unlocked Achievements list */}
+            {successRewards?.unlockedAchievements && successRewards.unlockedAchievements.length > 0 && (
+              <View style={styles.modalAchievementsBox}>
+                <Text style={styles.modalAchievementsTitle}>🏆 THÀNH TỰU MỚI ĐẠT ĐƯỢC!</Text>
+                {successRewards.unlockedAchievements.map((title, idx) => (
+                  <View key={idx} style={styles.modalAchievementItem}>
+                    <Ionicons name="trophy" size={15} color="#FFB000" style={{ marginRight: 8 }} />
+                    <Text style={styles.modalAchievementText}>{title}</Text>
+              {successRewards?.unlockedAchievements && successRewards.unlockedAchievements.length > 0 && (
+              <View style={styles.modalAchievementsBox}>
+                <Text style={styles.modalAchievementsTitle}>🏆 THÀNH TỰU MỚI ĐẠT ĐƯỢC!</Text>
+                {successRewards.unlockedAchievements.map((title, idx) => (
+                  <View key={idx} style={styles.modalAchievementItem}>
+                    <Ionicons name="trophy" size={15} color="#FFB000" style={{ marginRight: 8 }} />
+                    <Text style={styles.modalAchievementText}>{title}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
             <TouchableOpacity style={styles.modalBtn} onPress={handleCloseSuccessModal}>
               <Text style={styles.modalBtnText}>Nhận phần thưởng</Text>
               <Ionicons name="arrow-forward" size={16} color="#fff" style={{ marginLeft: 6 }} />
             </TouchableOpacity>
           </View>
+        </View>
+      </Modal>
+
+      {/* BEAUTIFUL CUSTOM ALERT MODAL */}
+      <Modal
+        visible={alertVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setAlertVisible(false)}
+      >
+        <View style={styles.alertOverlay}>
+          <Animated.View style={[styles.alertCard, { transform: [{ scale: alertScale }] }]}>
+            <View style={[styles.alertIconCircle, { backgroundColor: '#FFF0F0' }]}>
+              <Ionicons name="lock-closed" size={32} color="#EC4B4B" />
+            </View>
+            <Text style={styles.alertTitle}>{alertTitle}</Text>
+            <Text style={styles.alertMessage}>{alertMessage}</Text>
+            <TouchableOpacity style={styles.alertBtn} onPress={() => setAlertVisible(false)}>
+              <Text style={styles.alertBtnText}>Đồng ý</Text>
+            </TouchableOpacity>
+          </Animated.View>
         </View>
       </Modal>
     </SafeAreaView>
@@ -1284,6 +1483,98 @@ const styles = StyleSheet.create({
   modalBtnText: {
     color: '#fff',
     fontSize: 15,
+    fontWeight: 'bold',
+  },
+  modalAchievementsBox: {
+    backgroundColor: '#FFF9E6',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#FFB00033',
+    width: '100%',
+  },
+  modalAchievementsTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#FFB000',
+    marginBottom: 8,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  modalAchievementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  modalAchievementText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#1B2530',
+  },
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(27, 37, 48, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  alertCard: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxWidth: 320,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#FFEBEB',
+  },
+  alertIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  alertTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1B2530',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  alertMessage: {
+    fontSize: 13,
+    color: '#8A9AA9',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 20,
+    fontWeight: '500',
+    paddingHorizontal: 8,
+  },
+  alertBtn: {
+    backgroundColor: '#EC4B4B',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 20,
+    width: '100%',
+    alignItems: 'center',
+    shadowColor: '#EC4B4B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  alertBtnText: {
+    color: '#fff',
+    fontSize: 14,
     fontWeight: 'bold',
   },
 });

@@ -5,6 +5,7 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import petApi from '../../apis/petApi';
 import authApi from '../../apis/authApi';
+import achievementApi from '../../apis/achievementApi';
 import { getStorageItem } from '../../utils/storage';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -13,6 +14,7 @@ export default function PetsScreen() {
   const [pet, setPet] = useState<any | null>(null);
   const [user, setUser] = useState<any | null>(authUser);
   const [loading, setLoading] = useState(true);
+  const [achievements, setAchievements] = useState<any[]>([]);
 
   // Load thông tin thú cưng và người dùng hiện tại
   const loadPetData = async () => {
@@ -27,6 +29,7 @@ export default function PetsScreen() {
 
       // Load pet hiện đang chọn
       const selectedPetId = await getStorageItem('selectedPetId');
+      let currentPetId = selectedPetId;
       if (selectedPetId) {
         const pRes = await petApi.getPetById(selectedPetId) as any;
         if (pRes && pRes.success) {
@@ -38,10 +41,56 @@ export default function PetsScreen() {
         if (petsListRes && petsListRes.success && petsListRes.data.pets?.length > 0) {
           const firstPet = petsListRes.data.pets[0];
           setPet(firstPet);
+          currentPetId = firstPet._id;
           await require('../../utils/storage').setStorageItem('selectedPetId', firstPet._id);
         } else {
           setPet(null);
         }
+      }
+
+      // Load achievements
+      if (currentPetId && !currentPetId.startsWith('mock_')) {
+        const aRes = await achievementApi.getAchievements(currentPetId) as any;
+        if (aRes && aRes.success) {
+          setAchievements(aRes.data.achievements || []);
+        }
+      } else {
+        // Mock achievements for mock pets
+        setAchievements([
+          {
+            key: 'FIRST_QUEST',
+            title: 'Khởi đầu tốt đẹp 🐾',
+            description: 'Hoàn thành 1 nhiệm vụ bất kỳ cho thú cưng để nhận huy hiệu Dải băng đỏ 🎗️.',
+            badge_icon: 'ribbon',
+            badge_color: '#EC4B4B',
+            badge_bg_color: '#FFF0F0',
+            is_unlocked: true,
+            current_count: 1,
+            required_count: 1
+          },
+          {
+            key: 'FEED_MORNING_5',
+            title: 'Bữa sáng đầy đủ ☀️',
+            description: 'Cho thú cưng ăn bữa sáng dinh dưỡng 5 lần để nhận huy hiệu Bát ăn vàng 🍳.',
+            badge_icon: 'restaurant',
+            badge_color: '#FFB000',
+            badge_bg_color: '#FFF9E6',
+            is_unlocked: false,
+            current_count: 2,
+            required_count: 5
+          },
+          {
+            key: 'WALK_DOG_5',
+            title: 'Người bạn đồng hành 🦮',
+            description: 'Hoàn thành 5 nhiệm vụ dắt chó đi dạo để nhận huy hiệu Bước chân xanh 🦮.',
+            badge_icon: 'walk',
+            badge_color: '#2F80ED',
+            badge_bg_color: '#E2F0FF',
+            is_unlocked: false,
+            current_count: 1,
+            required_count: 5
+          }
+        ]);
       }
     } catch (error) {
       console.error('Error loading pet detail screen:', error);
@@ -162,29 +211,28 @@ export default function PetsScreen() {
           </View>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.achievementsScroll}>
-            <View style={styles.achievementCard}>
-              <View style={[styles.achievementIconCircle, { backgroundColor: '#E2FBE9' }]}>
-                <Ionicons name="home" size={22} color="#27AE60" />
-              </View>
-              <Text style={styles.achievementTitle}>New Home</Text>
-              <Text style={styles.achievementDesc}>Welcome home, Buddy!</Text>
-            </View>
-
-            <View style={styles.achievementCard}>
-              <View style={[styles.achievementIconCircle, { backgroundColor: '#E2F5FF' }]}>
-                <Ionicons name="walk" size={22} color="#2D9CDB" />
-              </View>
-              <Text style={styles.achievementTitle}>Explorer</Text>
-              <Text style={styles.achievementDesc}>Lần đầu dắt pet đi dạo</Text>
-            </View>
-
-            <View style={styles.achievementCard}>
-              <View style={[styles.achievementIconCircle, { backgroundColor: '#FFF7E6' }]}>
-                <Ionicons name="trophy" size={22} color="#F2994A" />
-              </View>
-              <Text style={styles.achievementTitle}>Champion</Text>
-              <Text style={styles.achievementDesc}>Đạt cấp độ 5</Text>
-            </View>
+            {achievements.length === 0 ? (
+              <Text style={{ color: '#8A9AA9', paddingVertical: 20, paddingHorizontal: 10, fontSize: 13 }}>Không có thành tựu nào.</Text>
+            ) : (
+              achievements.map((ach) => {
+                const isUnlocked = !!ach.is_unlocked;
+                return (
+                  <View key={ach.key} style={[styles.achievementCard, !isUnlocked && { opacity: 0.65 }]}>
+                    <View style={[styles.achievementIconCircle, { backgroundColor: ach.badge_bg_color || '#FFF0F0' }]}>
+                      <Ionicons name={ach.badge_icon as any || 'ribbon'} size={22} color={ach.badge_color || '#EC4B4B'} />
+                    </View>
+                    <Text style={styles.achievementTitle} numberOfLines={1}>{ach.title}</Text>
+                    <Text style={styles.achievementDesc} numberOfLines={3}>{ach.description}</Text>
+                    <Text style={[
+                      styles.achievementProgressText,
+                      { color: isUnlocked ? '#27AE60' : '#8A9AA9', marginTop: 6, fontSize: 10, fontWeight: 'bold' }
+                    ]}>
+                      {isUnlocked ? 'Đạt được ✓' : `Tiến trình: ${ach.current_count}/${ach.required_count}`}
+                    </Text>
+                  </View>
+                );
+              })
+            )}
           </ScrollView>
 
           {/* Action Button */}
@@ -241,10 +289,11 @@ const styles = StyleSheet.create({
   viewAllText: { fontSize: 13, fontWeight: 'bold', color: '#8A9AA9' },
 
   achievementsScroll: { gap: 12, paddingBottom: 4 },
-  achievementCard: { width: 120, backgroundColor: '#fff', borderRadius: 24, borderWidth: 1, borderColor: '#FFEBEB', padding: 16, alignItems: 'center' },
+  achievementCard: { width: 145, minHeight: 180, backgroundColor: '#fff', borderRadius: 24, borderWidth: 1, borderColor: '#FFEBEB', padding: 12, alignItems: 'center' },
   achievementIconCircle: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
-  achievementTitle: { fontSize: 13, fontWeight: 'bold', color: '#1B2530', marginBottom: 4 },
-  achievementDesc: { fontSize: 10, color: '#8A9AA9', fontWeight: '600', textAlign: 'center', lineHeight: 14 },
+  achievementTitle: { fontSize: 13, fontWeight: 'bold', color: '#1B2530', marginBottom: 4, textAlign: 'center' },
+  achievementDesc: { fontSize: 10, color: '#8A9AA9', fontWeight: '600', textAlign: 'center', lineHeight: 14, flex: 1 },
+  achievementProgressText: { fontSize: 10, fontWeight: 'bold', textAlign: 'center' },
 
   missionBtn: { flexDirection: 'row', backgroundColor: '#EC4B4B', borderRadius: 28, paddingVertical: 16, justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 24, shadowColor: '#EC4B4B', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 3 },
   missionBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },

@@ -63,7 +63,7 @@ export default function RanksScreen() {
           }
           
           const isMockId = !petId || petId.startsWith('mock_');
-          const res = await petApi.getLeaderboard(undefined, (isMockId || !petId) ? undefined : petId) as any;
+          const res = await petApi.getLeaderboard(undefined, (isMockId || !petId) ? undefined : petId, timeFilter) as any;
           let rawData: any[] = [];
           let serverUserPetRank = null;
           let serverUserPetData = null;
@@ -114,7 +114,7 @@ export default function RanksScreen() {
       };
 
       loadData();
-    }, [])
+    }, [timeFilter])
   );
 
   const getFilteredLeaderboard = () => {
@@ -122,35 +122,16 @@ export default function RanksScreen() {
       _id: pet._id,
       name: pet.name,
       avatar_url: pet.avatar_url || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=200',
-      challengesWon: pet.stats?.level ? pet.stats.level * 2 : 5,
+      challengesWon: pet.stats?.challenges_won || 0,
       stats: {
         xp: pet.stats?.xp || 0,
         level: pet.stats?.level || 1,
+        challenges_won: pet.stats?.challenges_won || 0,
       }
     }));
 
-    const adjusted = apiPets.map(pet => {
-      let xpVal = pet.stats.xp;
-      let challenges = pet.challengesWon;
-      
-      if (timeFilter === 'WEEK') {
-        xpVal = Math.max(100, Math.round(xpVal * 0.25));
-      } else {
-        xpVal = Math.max(300, xpVal);
-        challenges = Math.round(challenges * 3);
-      }
-
-      return {
-        ...pet,
-        challengesWon: challenges,
-        stats: {
-          ...pet.stats,
-          xp: xpVal
-        }
-      };
-    });
-
-    return adjusted.sort((a, b) => (b.stats?.xp || 0) - (a.stats?.xp || 0));
+    // Sắp xếp theo XP thực tế từ database (không tính lại)
+    return [...apiPets].sort((a, b) => (b.stats?.xp || 0) - (a.stats?.xp || 0));
   };
 
   const filteredLeaderboard = getFilteredLeaderboard();
@@ -167,17 +148,19 @@ export default function RanksScreen() {
         rank: foundIndex + 1,
         stats: {
           ...selectedPet.stats,
-          xp: filteredLeaderboard[foundIndex].stats?.xp
+          xp: filteredLeaderboard[foundIndex].stats?.xp,
+          challenges_won: filteredLeaderboard[foundIndex].stats?.challenges_won
         }
       };
     } else {
-      const finalXP = timeFilter === 'WEEK' ? 840 : 2680;
+      // Thú cưng nằm ngoài top 20, dùng XP thực tế từ database
       return {
         ...selectedPet,
-        rank: selectedPet.rank || 42,
+        rank: selectedPet.rank || '20+',
         stats: {
           ...selectedPet.stats,
-          xp: finalXP
+          xp: selectedPet.stats?.xp || 0,
+          challenges_won: selectedPet.stats?.challenges_won || 0
         }
       };
     }
@@ -331,10 +314,10 @@ export default function RanksScreen() {
                 </View>
                 <View style={styles.stickyInfo}>
                   <Text style={styles.stickyName}>Thứ hạng của bạn ({activeUserPet.name || 'Max'})</Text>
-                  <Text style={styles.stickyLevel}>Bạn nằm trong top 15%</Text>
+                  <Text style={styles.stickyLevel}>Cấp độ {activeUserPet.stats?.level || 1} • {activeUserPet.stats?.challenges_won || 0} nhiệm vụ đã xong</Text>
                 </View>
                 <View style={styles.stickyXPContainer}>
-                  <Text style={styles.stickyXPValue}>{Number(activeUserPet.stats?.xp || 840).toLocaleString()}</Text>
+                  <Text style={styles.stickyXPValue}>{Number(activeUserPet.stats?.xp || 0).toLocaleString()}</Text>
                   <Text style={styles.stickyXPLabel}>ĐIỂM</Text>
                 </View>
               </View>

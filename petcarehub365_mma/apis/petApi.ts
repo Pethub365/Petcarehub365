@@ -17,8 +17,8 @@ const petApi = {
         
     deletePet: (id: string) => axiosClient.delete(`/pets/${id}`),
     
-    getLeaderboard: (species?: string, currentPetId?: string) => 
-        axiosClient.get('/pets/leaderboard', { params: { species, currentPetId } }),
+    getLeaderboard: (species?: string, currentPetId?: string, timeFilter?: string) => 
+        axiosClient.get('/pets/leaderboard', { params: { species, currentPetId, timeFilter } }),
 };
 
 export default petApi;

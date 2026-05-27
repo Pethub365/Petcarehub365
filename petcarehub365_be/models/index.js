@@ -10,12 +10,16 @@ const Notification = require('./Notification');
 const Pet = require('./Pet');
 const VetKnowledge = require('./VetKnowledge');
 const DailyQuest = require('./DailyQuest');
+const WeeklyQuest = require('./WeeklyQuest');
+const { Achievement, UserAchievement } = require('./Achievement');
 const PetMoment = require('./PetMoment');
 const FamilyGroup = require('./FamilyGroup');
 const FamilyInvitation = require('./FamilyInvitation');
 const DeviceToken = require('./DeviceToken');
 const HealthLog = require('./HealthLog');
 const Vaccine = require('./Vaccine');
+const Subscription = require('./Subscription');
+const PaymentTransaction = require('./PaymentTransaction');
 
 // TODO: Add more domain-specific models as you build the project
 // e.g., VetClinic, Appointment, Product, Order, Cart, etc.
@@ -33,10 +37,15 @@ module.exports = {
     Pet,
     VetKnowledge,
     DailyQuest,
+    WeeklyQuest,
+    Achievement,
+    UserAchievement,
     PetMoment,
     FamilyGroup,
     FamilyInvitation,
     DeviceToken,
     HealthLog,
     Vaccine,
+    Subscription,
+    PaymentTransaction,
 };

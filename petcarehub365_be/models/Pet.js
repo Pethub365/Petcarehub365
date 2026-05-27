@@ -58,5 +58,6 @@ const petSchema = new mongoose.Schema({
 });
 
 petSchema.index({ owner_id: 1 });
+petSchema.index({ 'stats.xp': -1 }); // Tối ưu truy vấn bảng xếp hạng
 
 module.exports = mongoose.model('Pet', petSchema);

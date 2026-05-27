@@ -9,8 +9,13 @@ import subscriptionApi from '../apis/subscriptionApi';
 
 export default function CheckoutScreen() {
   const isDark = useColorScheme() === 'dark';
-  const { user, updateProfile } = useAuth();
-  const { packageType = 'MONTHLY', name = 'Gói VIP Tháng', price = '49.000đ' } = useLocalSearchParams();
+  const { user, refreshUser } = useAuth();
+  const {
+    packageType = 'MONTHLY',
+    planType = 'VIP',
+    name = 'Gói VIP Tháng',
+    price = '49.000đ',
+  } = useLocalSearchParams();
 
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [submitting, setSubmitting] = useState(false);
@@ -26,26 +31,27 @@ export default function CheckoutScreen() {
     selectedBorder: '#EC4B4B',
   };
 
-  // Convert packageType parameter to correct string format for API
+  // Parse params
   const finalPackageType = (String(packageType).toUpperCase() === 'YEARLY' ? 'YEARLY' : 'MONTHLY') as 'MONTHLY' | 'YEARLY';
+  const finalPlanType = (String(planType).toUpperCase() === 'PREMIUM' ? 'PREMIUM' : 'VIP') as 'PREMIUM' | 'VIP';
+  const planLabel = finalPlanType === 'VIP' ? 'VIP' : 'Premium';
 
   const handleConfirmPayment = async () => {
     try {
       setSubmitting(true);
-      const res = await subscriptionApi.upgradeVip(finalPackageType) as any;
+      const res = await subscriptionApi.upgradeSubscription(finalPlanType, finalPackageType, paymentMethod) as any;
       setSubmitting(false);
 
       if (res && res.success) {
+        // Refresh user data so subscription_plan updates immediately
+        await refreshUser();
         Alert.alert(
-          'Thanh toán thành công! 🌟',
-          res.message || 'Cảm ơn bạn đã nâng cấp gói VIP Premium của PetCare Hub. Trải nghiệm chăm sóc thú cưng của bạn đã sẵn sàng!',
+          `Thanh toán thành công! 🌟`,
+          res.message || `Cảm ơn bạn đã nâng cấp gói ${planLabel}. Trải nghiệm của bạn đã sẵn sàng!`,
           [
             {
               text: 'Bắt đầu ngay',
-              onPress: () => {
-                // Route user back to Home screen and refresh user context
-                router.replace('/(tabs)');
-              }
+              onPress: () => { router.replace('/(tabs)/shop'); }
             }
           ]
         );
@@ -56,7 +62,7 @@ export default function CheckoutScreen() {
       setSubmitting(false);
       Alert.alert(
         'Lỗi',
-        error.response?.data?.message || 'Có lỗi xảy ra khi xử lý nâng cấp VIP. Vui lòng thử lại.'
+        error.response?.data?.message || `Có lỗi xảy ra khi xử lý nâng cấp gói ${planLabel}. Vui lòng thử lại.`
       );
     }
   };
@@ -142,6 +148,28 @@ export default function CheckoutScreen() {
             </View>
             <View style={[styles.radioOuter, paymentMethod === 'zalopay' && { borderColor: '#EC4B4B' }]}>
               {paymentMethod === 'zalopay' && <View style={[styles.radioInner, { backgroundColor: '#EC4B4B' }]} />}
+            </View>
+          </TouchableOpacity>
+
+          {/* VietQR Option */}
+          <TouchableOpacity 
+            style={[
+              styles.paymentCard, 
+              { backgroundColor: bgColors.card, borderColor: bgColors.border },
+              paymentMethod === 'vietqr' && { backgroundColor: bgColors.selectedBg, borderColor: bgColors.selectedBorder }
+            ]} 
+            onPress={() => setPaymentMethod('vietqr')}
+            activeOpacity={0.9}
+          >
+            <View style={[styles.paymentIconWrap, { backgroundColor: '#E3F2FD' }]}>
+              <Ionicons name="qr-code" size={20} color="#0068FF" />
+            </View>
+            <View style={styles.paymentInfo}>
+              <Text style={[styles.paymentName, { color: bgColors.text }]}>Chuyển khoản VietQR</Text>
+              <Text style={styles.paymentDesc}>Quét mã QR qua ứng dụng Ngân hàng</Text>
+            </View>
+            <View style={[styles.radioOuter, paymentMethod === 'vietqr' && { borderColor: '#EC4B4B' }]}>
+              {paymentMethod === 'vietqr' && <View style={[styles.radioInner, { backgroundColor: '#EC4B4B' }]} />}
             </View>
           </TouchableOpacity>
         </View>

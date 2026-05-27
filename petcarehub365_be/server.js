@@ -15,6 +15,7 @@ const errorHandler = require('./middleware/error');
 const ApiError = require('./utils/ApiError');
 const apiLogger = require('./middleware/apiLogger');
 const chatSocket = require('./socket/chatSocket');
+const { startSubscriptionExpiryJob, stopSubscriptionExpiryJob } = require('./jobs/subscriptionExpiry');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -80,8 +81,20 @@ connectDB()
         httpServer.listen(PORT, () => {
             console.log(`🐾 PetcareHub365 Server started on port ${PORT} in ${env} mode`);
         });
+        // Khởi động background job kiểm tra subscription hết hạn
+        startSubscriptionExpiryJob();
     })
     .catch((err) => {
         console.error("Failed to connect to database:", err);
         process.exit(1);
     });
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    stopSubscriptionExpiryJob();
+    httpServer.close(() => process.exit(0));
+});
+process.on('SIGINT', () => {
+    stopSubscriptionExpiryJob();
+    httpServer.close(() => process.exit(0));
+});
