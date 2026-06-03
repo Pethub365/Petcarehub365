@@ -42,8 +42,9 @@ export default function RegisterScreen() {
     setLoading(false);
     
     if (result && (result.success || result.data)) {
-      Alert.alert('Thành công', 'Đăng ký tài khoản thành công! Vui lòng kiểm tra hộp thư email để nhận mã OTP xác thực.');
-      setOtpModalVisible(true);
+      Alert.alert('Thành công', 'Đăng ký tài khoản thành công! Hãy tiến hành đăng nhập.', [
+        { text: 'Đăng nhập', onPress: () => router.replace('/(auth)/login') }
+      ]);
     } else {
       setError(result?.message || 'Đăng ký thất bại. Email có thể đã tồn tại.');
     }

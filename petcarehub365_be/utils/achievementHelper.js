@@ -111,6 +111,97 @@ const seedDefaultAchievements = async () => {
             reward_xp: 200,
             reward_coin: 50,
             sort_order: 8
+        },
+        {
+            key: 'ALL_QUESTS_10',
+            title: 'Chăm sóc bền bỉ 🌟',
+            description: 'Hoàn thành 10 nhiệm vụ bất kỳ cho thú cưng để nhận huy hiệu Ngôi sao xanh 🌟.',
+            trigger_quest_category: 'ANY',
+            required_count: 10,
+            badge_icon: 'star',
+            badge_color: '#3498DB',
+            badge_bg_color: '#EBF5FB',
+            reward_xp: 150,
+            reward_coin: 50,
+            sort_order: 9
+        },
+        {
+            key: 'ALL_QUESTS_30',
+            title: 'Trách nhiệm tối cao 🏆',
+            description: 'Hoàn thành 30 nhiệm vụ bất kỳ cho thú cưng để nhận huy hiệu Cúp vương miện vàng 🏆.',
+            trigger_quest_category: 'ANY',
+            required_count: 30,
+            badge_icon: 'trophy',
+            badge_color: '#D4AC0D',
+            badge_bg_color: '#FEF9E7',
+            reward_xp: 350,
+            reward_coin: 100,
+            sort_order: 10
+        },
+        {
+            key: 'NUTRITION_15',
+            title: 'Chuyên gia dinh dưỡng 🍏',
+            description: 'Hoàn thành 15 nhiệm vụ Dinh dưỡng để nhận huy hiệu Táo xanh sức khỏe 🍏.',
+            trigger_quest_category: 'NUTRITION',
+            required_count: 15,
+            badge_icon: 'nutrition',
+            badge_color: '#2ECC71',
+            badge_bg_color: '#E8F8F0',
+            reward_xp: 200,
+            reward_coin: 60,
+            sort_order: 11
+        },
+        {
+            key: 'ROUTINE_15',
+            title: 'Thói quen nề nếp 📅',
+            description: 'Hoàn thành 15 nhiệm vụ Chăm sóc thường ngày để nhận huy hiệu Lịch trình xanh 📅.',
+            trigger_quest_category: 'DAILY_ROUTINE',
+            required_count: 15,
+            badge_icon: 'calendar',
+            badge_color: '#9B59B6',
+            badge_bg_color: '#F4ECF7',
+            reward_xp: 200,
+            reward_coin: 60,
+            sort_order: 12
+        },
+        {
+            key: 'LONG_TERM_QUEST',
+            title: 'Thử thách bền bỉ ⏳',
+            description: 'Hoàn thành 3 nhiệm vụ Tuần/Tháng/Năm để nhận huy hiệu Đồng hồ cát cổ ⏳.',
+            trigger_quest_category: 'ANY',
+            required_count: 3,
+            badge_icon: 'hourglass',
+            badge_color: '#E67E22',
+            badge_bg_color: '#FDF2E9',
+            reward_xp: 250,
+            reward_coin: 80,
+            sort_order: 13
+        },
+        {
+            key: 'TRAINING_10',
+            title: 'Huấn luyện tài ba 🐕',
+            description: 'Hoàn thành 10 nhiệm vụ Huấn luyện để nhận huy hiệu Còi vàng 🐕.',
+            trigger_quest_category: 'TRAINING',
+            required_count: 10,
+            badge_icon: 'volume-high',
+            badge_color: '#E74C3C',
+            badge_bg_color: '#FDEDEC',
+            reward_xp: 250,
+            reward_coin: 70,
+            sort_order: 14
+        },
+        {
+            key: 'HEALTH_10',
+            title: 'Thần hộ mệnh y tế 🩺',
+            description: 'Hoàn thành 10 nhiệm vụ Sức khỏe để nhận huy hiệu Chữ thập đỏ 🩺.',
+            trigger_quest_category: 'HEALTH_CARE',
+            required_count: 10,
+            badge_icon: 'medical',
+            badge_color: '#C0392B',
+            badge_bg_color: '#FDEDEC',
+            reward_xp: 300,
+            reward_coin: 80,
+            sort_order: 15
         }
     ];
 
@@ -149,6 +240,14 @@ const updateAchievementProgress = async (user, pet, quest) => {
             if (isMatch && achievement.trigger_quest_title_contains) {
                 const questTitle = quest.title || '';
                 isMatch = questTitle.toLowerCase().includes(achievement.trigger_quest_title_contains.toLowerCase());
+            }
+
+            // Custom condition: LONG_TERM_QUEST triggers only for weekly/monthly/annual quests
+            if (isMatch && achievement.key === 'LONG_TERM_QUEST') {
+                const isWeeklyOrLonger = quest.period && quest.period !== 'DAILY';
+                if (!isWeeklyOrLonger) {
+                    isMatch = false;
+                }
             }
 
             if (isMatch) {

@@ -186,6 +186,9 @@ export default function NotificationsScreen() {
         ]}
         onPress={() => {
           if (isUnread) handleMarkRead(noti._id);
+          if (noti.type === 'FAMILY_INVITE') {
+            router.push('/family-management');
+          }
         }}
         onLongPress={() => handleDelete(noti._id)}
         activeOpacity={0.8}

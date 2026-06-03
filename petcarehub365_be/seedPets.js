@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
 const mongoUri = 'mongodb+srv://LeNgoc_db_user:1234567890@cluster0.sowj9aw.mongodb.net/PetcareHub365DB?retryWrites=true&w=majority&appName=Cluster0';
 
@@ -8,11 +9,80 @@ async function seed() {
     console.log('Connected to MongoDB.');
     const db = mongoose.connection.db;
     const petsCollection = db.collection('pets');
+    const usersCollection = db.collection('users');
+
+    const hashedPassword = await bcrypt.hash('123456', 10);
+
+    // 1. Seed or Update Test User (VIP)
+    const testUserId = new mongoose.Types.ObjectId('6a02c1e2e4a7c354594b5c9d');
+    const existingTestUser = await usersCollection.findOne({ _id: testUserId });
+    const vipUser = {
+      _id: testUserId,
+      email: 'test@petcarehub.com',
+      password_hash: hashedPassword,
+      is_email_verified: true,
+      status: 'ACTIVE',
+      coins: 200,
+      is_vip: true,
+      vip_expires_at: new Date('2030-01-01'),
+      subscription_plan: 'VIP',
+      subscription_expires_at: new Date('2030-01-01'),
+      profile: {
+        full_name: 'Test User',
+        phone: '0987654321',
+        avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200'
+      },
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+
+    if (existingTestUser) {
+      await usersCollection.updateOne({ _id: testUserId }, { $set: { is_vip: true, subscription_plan: 'VIP', vip_expires_at: new Date('2030-01-01'), subscription_expires_at: new Date('2030-01-01') } });
+      console.log('Updated existing Test User to VIP.');
+    } else {
+      await usersCollection.insertOne(vipUser);
+      console.log('Inserted Test User (VIP).');
+    }
+
+    // 2. Seed or Update Le Ngoc User (FREE)
+    const leNgocUserId = new mongoose.Types.ObjectId('6a02c2d1e4a7c354594b5ca0');
+    const existingLeNgocUser = await usersCollection.findOne({ _id: leNgocUserId });
+    const freeUser = {
+      _id: leNgocUserId,
+      email: 'lengoc@petcarehub.com',
+      password_hash: hashedPassword,
+      is_email_verified: true,
+      status: 'ACTIVE',
+      coins: 100,
+      is_vip: false,
+      vip_expires_at: null,
+      subscription_plan: 'FREE',
+      subscription_expires_at: null,
+      profile: {
+        full_name: 'Le Ngoc',
+        phone: '0123456789',
+        avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=200'
+      },
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+
+    if (existingLeNgocUser) {
+      await usersCollection.updateOne({ _id: leNgocUserId }, { $set: { is_vip: false, subscription_plan: 'FREE', vip_expires_at: null, subscription_expires_at: null } });
+      console.log('Updated existing Le Ngoc User to FREE.');
+    } else {
+      await usersCollection.insertOne(freeUser);
+      console.log('Inserted Le Ngoc User (FREE).');
+    }
+
+    // 3. Clean and Seed Pets
+    console.log('Clearing existing pets...');
+    await petsCollection.deleteMany({});
 
     // Define pets to seed
     const mockPets = [
       {
-        owner_id: new mongoose.Types.ObjectId('6a02c1e2e4a7c354594b5c9d'), // Test User
+        owner_id: testUserId, // Test User (VIP)
         name: 'Cooper',
         species: 'DOG',
         breed: 'Corgi',
@@ -25,7 +95,7 @@ async function seed() {
         stats: { xp: 3120, level: 12, mood: 95, energy: 90 }
       },
       {
-        owner_id: new mongoose.Types.ObjectId('6a02c1e2e4a7c354594b5c9d'), // Test User
+        owner_id: testUserId, // Test User (VIP)
         name: 'Bella',
         species: 'DOG',
         breed: 'Golden Retriever',
@@ -38,7 +108,7 @@ async function seed() {
         stats: { xp: 2450, level: 8, mood: 90, energy: 85 }
       },
       {
-        owner_id: new mongoose.Types.ObjectId('6a02c1e2e4a7c354594b5c9d'), // Test User
+        owner_id: testUserId, // Test User (VIP)
         name: 'Rocky',
         species: 'DOG',
         breed: 'Husky',
@@ -51,10 +121,49 @@ async function seed() {
         stats: { xp: 1950, level: 5, mood: 88, energy: 80 }
       },
       {
-        owner_id: new mongoose.Types.ObjectId('6a02c2d1e4a7c354594b5ca0'), // Le Ngoc
+        owner_id: testUserId, // Test User (VIP)
+        name: 'Chico',
+        species: 'DOG',
+        breed: 'Chihuahua',
+        dob: new Date('2024-01-15'),
+        weight: 3.2,
+        gender: 'MALE',
+        is_neutered: true,
+        health_status: 'NORMAL',
+        avatar_url: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?q=80&w=200',
+        stats: { xp: 1200, level: 3, mood: 92, energy: 85 }
+      },
+      {
+        owner_id: testUserId, // Test User (VIP)
+        name: 'Milo',
+        species: 'DOG',
+        breed: 'Poodle',
+        dob: new Date('2024-01-01'),
+        weight: 10,
+        gender: 'MALE',
+        is_neutered: true,
+        health_status: 'NORMAL',
+        avatar_url: 'https://images.unsplash.com/photo-1573865526739-10659fec78a5?q=80&w=200',
+        stats: { xp: 2380, level: 7, mood: 90, energy: 92 }
+      },
+      {
+        owner_id: leNgocUserId, // Le Ngoc (FREE)
+        name: 'Coco',
+        species: 'CAT',
+        breed: 'Sphynx',
+        dob: new Date('2024-02-01'),
+        weight: 4,
+        gender: 'FEMALE',
+        is_neutered: true,
+        health_status: 'NORMAL',
+        avatar_url: 'https://images.unsplash.com/photo-1526336028075-c3584014f3cf?q=80&w=200',
+        stats: { xp: 1500, level: 4, mood: 90, energy: 95 }
+      },
+      {
+        owner_id: leNgocUserId, // Le Ngoc (FREE)
         name: 'Oliver',
         species: 'CAT',
-        breed: 'American Shorthair',
+        breed: 'Scottish Fold',
         dob: new Date('2023-03-01'),
         weight: 5,
         gender: 'MALE',
@@ -64,7 +173,7 @@ async function seed() {
         stats: { xp: 2840, level: 11, mood: 92, energy: 88 }
       },
       {
-        owner_id: new mongoose.Types.ObjectId('6a02c2d1e4a7c354594b5ca0'), // Le Ngoc
+        owner_id: leNgocUserId, // Le Ngoc (FREE)
         name: 'Luna',
         species: 'CAT',
         breed: 'British Shorthair',
@@ -77,43 +186,35 @@ async function seed() {
         stats: { xp: 2610, level: 9, mood: 94, energy: 90 }
       },
       {
-        owner_id: new mongoose.Types.ObjectId('6a02c2d1e4a7c354594b5ca0'), // Le Ngoc
-        name: 'Milo',
-        species: 'DOG',
-        breed: 'Corgi',
-        dob: new Date('2024-01-01'),
-        weight: 10,
+        owner_id: leNgocUserId, // Le Ngoc (FREE)
+        name: 'Lucy',
+        species: 'CAT',
+        breed: 'British Longhair',
+        dob: new Date('2023-05-10'),
+        weight: 4.8,
+        gender: 'FEMALE',
+        is_neutered: false,
+        health_status: 'NORMAL',
+        avatar_url: 'https://images.unsplash.com/photo-1533738363-b7f9aef128ce?q=80&w=200',
+        stats: { xp: 1800, level: 5, mood: 89, energy: 87 }
+      },
+      {
+        owner_id: leNgocUserId, // Le Ngoc (FREE)
+        name: 'Simbah',
+        species: 'CAT',
+        breed: 'Persian',
+        dob: new Date('2023-07-20'),
+        weight: 5.2,
         gender: 'MALE',
         is_neutered: true,
         health_status: 'NORMAL',
-        avatar_url: 'https://images.unsplash.com/photo-1573865526739-10659fec78a5?q=80&w=200',
-        stats: { xp: 2380, level: 7, mood: 90, energy: 92 }
-      },
-      {
-        owner_id: new mongoose.Types.ObjectId('6a02c2d1e4a7c354594b5ca0'), // Le Ngoc
-        name: 'Bibi',
-        species: 'OTHER',
-        breed: 'Parrot',
-        dob: new Date('2023-11-01'),
-        weight: 0.3,
-        gender: 'UNKNOWN',
-        is_neutered: false,
-        health_status: 'NORMAL',
-        avatar_url: 'https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?q=80&w=200',
-        stats: { xp: 2100, level: 6, mood: 85, energy: 80 }
+        avatar_url: 'https://images.unsplash.com/photo-1618826411640-d6df44dd3f7a?q=80&w=200',
+        stats: { xp: 2020, level: 6, mood: 91, energy: 86 }
       }
     ];
 
-    for (const pet of mockPets) {
-      // Check if pet already exists by name and owner to prevent duplicate seed runs
-      const existing = await petsCollection.findOne({ name: pet.name, owner_id: pet.owner_id });
-      if (!existing) {
-        await petsCollection.insertOne(pet);
-        console.log(`Seeded pet: ${pet.name}`);
-      } else {
-        console.log(`Pet already exists: ${pet.name}`);
-      }
-    }
+    await petsCollection.insertMany(mockPets);
+    console.log(`Seeded ${mockPets.length} pets.`);
 
     console.log('Seeding completed successfully.');
     process.exit(0);

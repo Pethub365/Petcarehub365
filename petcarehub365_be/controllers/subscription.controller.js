@@ -10,7 +10,7 @@ const sendEmail = require('../utils/sendEmail');
 // ─────────────────────────────────────────────
 const PLAN_PRICE = {
     PREMIUM: { MONTHLY: 49000, YEARLY: 49000 * 12 * 0.8 },
-    VIP:     { MONTHLY: 139000, YEARLY: 139000 * 12 * 0.8 },
+    VIP: { MONTHLY: 139000, YEARLY: 139000 * 12 * 0.8 },
 };
 
 const PLAN_RANK = { FREE: 0, PREMIUM: 1, VIP: 2 };
@@ -112,7 +112,7 @@ exports.getPlans = catchAsync(async (req, res) => {
             price_yearly: 0,
             features: [
                 'Theo dõi sức khỏe cơ bản',
-                'Tham gia cộng đồng hỗ trợ 24/7',
+
                 'Xem thông tin cơ bản của thú cưng',
             ],
             is_current: sub.plan_type === 'FREE',
@@ -140,7 +140,7 @@ exports.getPlans = catchAsync(async (req, res) => {
                 'Tất cả quyền lợi của Premium',
                 'Mở khóa hướng dẫn chuyên sâu',
                 'Phân tích AI nâng cao',
-                'Báo cáo chuyên sâu hàng tuần',
+
                 'Gói gia đình (Family Plan)',
                 'Nhiệm vụ cá nhân hóa theo từng pet',
             ],

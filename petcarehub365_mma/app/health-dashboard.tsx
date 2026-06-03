@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert, Modal, TextInput, ActivityIndicator, Image, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getStorageItem } from '@/utils/storage';
+import { getStorageItem, setStorageItem } from '@/utils/storage';
 import healthApi from '@/apis/healthApi';
 import petApi from '@/apis/petApi';
 
 export default function HealthDashboardScreen() {
   const [petId, setPetId] = useState<string | null>(null);
   const [pet, setPet] = useState<any>(null);
+  const [pets, setPets] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
   const [vaccines, setVaccines] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,9 +30,27 @@ export default function HealthDashboardScreen() {
   const [nextDueDate, setNextDueDate] = useState('');
   const [vacNotes, setVacNotes] = useState('');
 
-  const loadData = async () => {
+  const loadData = async (targetPetId?: string) => {
     try {
-      const activePetId = await getStorageItem('selectedPetId');
+      setLoading(true);
+      // Fetch all pets first
+      const petsRes = await petApi.getPets() as any;
+      let availablePets = [];
+      if (petsRes && petsRes.success) {
+        availablePets = petsRes.data.pets || [];
+        setPets(availablePets);
+      }
+
+      let activePetId = targetPetId || await getStorageItem('selectedPetId');
+      
+      // Fallback to first pet if selectedPetId is not in the list
+      if (availablePets.length > 0) {
+        const found = availablePets.find((p: any) => p._id === activePetId);
+        if (!found) {
+          activePetId = availablePets[0]._id;
+        }
+      }
+
       if (!activePetId) {
         // Fallback to mock data matching Figma if no active pet exists
         setPet({
@@ -55,6 +74,7 @@ export default function HealthDashboardScreen() {
         return;
       }
       setPetId(activePetId);
+      await setStorageItem('selectedPetId', activePetId);
 
       const [petRes, logsRes, vacRes] = await Promise.all([
         petApi.getPetById(activePetId).catch(() => null),
@@ -104,9 +124,81 @@ export default function HealthDashboardScreen() {
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
+
+  const handleSelectPet = async (selected: any) => {
+    setPetId(selected._id);
+    await setStorageItem('selectedPetId', selected._id);
+    loadData(selected._id);
+  };
+
+  const handleSettingsPress = () => {
+    if (!petId) {
+      Alert.alert('Thông báo', 'Không tìm thấy ID thú cưng để thao tác.');
+      return;
+    }
+    Alert.alert(
+      'Quản lý thú cưng 🐾',
+      'Chọn thao tác bạn muốn thực hiện:',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { 
+          text: 'Chỉnh sửa thông tin', 
+          onPress: () => router.push(`/pet/${petId}`) 
+        },
+        { 
+          text: 'Xóa hồ sơ thú cưng', 
+          style: 'destructive',
+          onPress: () => confirmDeletePet()
+        }
+      ]
+    );
+  };
+
+  const confirmDeletePet = () => {
+    Alert.alert(
+      'Xác nhận xóa vĩnh viễn ⚠️',
+      `Bạn có chắc muốn xóa hồ sơ thú cưng ${pet?.name}? Hành động này sẽ xóa sạch dữ liệu và nhiệm vụ liên quan.`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { 
+          text: 'Xóa vĩnh viễn', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const res = await petApi.deletePet(petId!) as any;
+              if (res && res.success) {
+                Alert.alert('Thành công', 'Đã xóa hồ sơ thú cưng thành công.');
+                const petsRes = await petApi.getPets() as any;
+                if (petsRes && petsRes.success && petsRes.data.pets.length > 0) {
+                  const firstPetId = petsRes.data.pets[0]._id;
+                  await setStorageItem('selectedPetId', firstPetId);
+                  loadData(firstPetId);
+                } else {
+                  await setStorageItem('selectedPetId', '');
+                  setPetId(null);
+                  setPet(null);
+                  router.replace('/(tabs)/pets');
+                }
+              } else {
+                Alert.alert('Thất bại', res.message || 'Không thể xóa hồ sơ.');
+                setLoading(false);
+              }
+            } catch (error: any) {
+              setLoading(false);
+              console.error('Error deleting pet:', error);
+              Alert.alert('Lỗi', error.response?.data?.message || 'Có lỗi xảy ra khi xóa thú cưng.');
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const handleAddLog = async () => {
     if (!weight || !height) {
@@ -207,10 +299,41 @@ export default function HealthDashboardScreen() {
           <Ionicons name="chevron-back" size={24} color="#1B2530" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Chỉ số sức khỏe</Text>
-        <TouchableOpacity style={styles.backBtn} onPress={() => Alert.alert('Cài đặt', 'Cài đặt chỉ số sức khỏe')}>
+        <TouchableOpacity style={styles.backBtn} onPress={handleSettingsPress}>
           <Ionicons name="settings-sharp" size={20} color="#1B2530" />
         </TouchableOpacity>
       </View>
+
+      {/* Pet Switcher Bar */}
+      {pets.length > 0 && (
+        <View style={styles.petSelectorContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.petScrollContent}>
+            {pets.map((p) => {
+              const isSelected = p._id === petId;
+              return (
+                <TouchableOpacity
+                  key={p._id}
+                  style={styles.petAvatarWrapper}
+                  onPress={() => handleSelectPet(p)}
+                >
+                  <View style={[styles.petAvatarRing, isSelected && styles.petAvatarRingActive]}>
+                    <View style={styles.petIconPlaceholder}>
+                      {p.avatar_url ? (
+                        <Image source={{ uri: p.avatar_url }} style={styles.petImageSmall} />
+                      ) : (
+                        <Ionicons name="paw" size={20} color={isSelected ? '#EC4B4B' : '#8A9AA9'} />
+                      )}
+                    </View>
+                  </View>
+                  <Text style={[styles.petSelectName, isSelected && styles.petSelectNameActive]} numberOfLines={1}>
+                    {p.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         
@@ -446,6 +569,59 @@ export default function HealthDashboardScreen() {
 }
 
 const styles = StyleSheet.create({
+  petSelectorContainer: {
+    backgroundColor: '#fff',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFEBEB',
+  },
+  petScrollContent: {
+    paddingHorizontal: 20,
+    gap: 16,
+  },
+  petAvatarWrapper: {
+    alignItems: 'center',
+    width: 68,
+  },
+  petAvatarRing: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    padding: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FAF9F9',
+  },
+  petAvatarRingActive: {
+    borderColor: '#EC4B4B',
+    backgroundColor: '#fff',
+  },
+  petIconPlaceholder: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 22,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFF0F0',
+  },
+  petImageSmall: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  petSelectName: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#8A9AA9',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  petSelectNameActive: {
+    color: '#EC4B4B',
+  },
   container: { flex: 1, backgroundColor: '#FAF9F9' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FAF9F9' },
   header: { 

@@ -1009,13 +1009,6 @@ export default function MissionDetailScreen() {
                   <View key={idx} style={styles.modalAchievementItem}>
                     <Ionicons name="trophy" size={15} color="#FFB000" style={{ marginRight: 8 }} />
                     <Text style={styles.modalAchievementText}>{title}</Text>
-              {successRewards?.unlockedAchievements && successRewards.unlockedAchievements.length > 0 && (
-              <View style={styles.modalAchievementsBox}>
-                <Text style={styles.modalAchievementsTitle}>🏆 THÀNH TỰU MỚI ĐẠT ĐƯỢC!</Text>
-                {successRewards.unlockedAchievements.map((title, idx) => (
-                  <View key={idx} style={styles.modalAchievementItem}>
-                    <Ionicons name="trophy" size={15} color="#FFB000" style={{ marginRight: 8 }} />
-                    <Text style={styles.modalAchievementText}>{title}</Text>
                   </View>
                 ))}
               </View>

@@ -38,45 +38,15 @@ exports.register = catchAsync(async (req, res) => {
     const user = await User.create({
         email,
         password_hash,
-        status: 'PENDING',
+        status: 'ACTIVE',
+        is_email_verified: true,
         profile: { full_name },
     });
 
-    // Generate random 6-digit OTP code
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // Store OTP in database
-    await EmailVerificationToken.create({
-        user_id: user._id,
-        token_hash: otp,
-        expires_at: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
-    });
-
-    // Send email with OTP code
-    try {
-        await sendEmail({
-            to: user.email,
-            subject: 'Xác thực tài khoản PetcareHub365 🐾',
-            html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-                    <h2 style="color: #6366F1;">Chào mừng ${full_name || 'bạn'} đến với PetcareHub365!</h2>
-                    <p>Mã xác thực đăng ký tài khoản của bạn là:</p>
-                    <div style="background-color: #F3F4F6; padding: 15px; border-radius: 8px; font-size: 24px; font-weight: bold; text-align: center; color: #4F46E5; letter-spacing: 5px; margin: 20px 0;">
-                        ${otp}
-                    </div>
-                    <p>Mã xác thực có hiệu lực trong vòng 10 phút. Vui lòng không chia sẻ mã này với bất kỳ ai.</p>
-                    <p>Trân trọng,<br/>Đội ngũ PetcareHub365</p>
-                </div>
-            `
-        });
-    } catch (err) {
-        console.error('Không thể gửi mail OTP đăng ký:', err.message);
-    }
-
     res.status(httpStatus.CREATED).json({
         success: true,
-        message: 'Đăng ký thành công! Vui lòng kiểm tra email để lấy mã xác thực OTP.',
-        data: { user: { _id: user._id, email: user.email, profile: user.profile } },
+        message: 'Đăng ký tài khoản thành công!',
+        data: { user: { _id: user._id, email: user.email, profile: user.profile, status: user.status } },
     });
 });
 
@@ -88,7 +58,7 @@ exports.login = catchAsync(async (req, res) => {
     }).select('+password_hash');
 
     if (!user || !(await user.matchPassword(password))) {
-        throw new ApiError(httpStatus.UNAUTHORIZED, 'Invalid credentials');
+        throw new ApiError(httpStatus.UNAUTHORIZED, 'Email hoặc mật khẩu không đúng. Vui lòng thử lại.');
     }
     if (user.status !== 'ACTIVE') {
         throw new ApiError(httpStatus.FORBIDDEN, 'Account is not active');
@@ -116,6 +86,10 @@ exports.login = catchAsync(async (req, res) => {
                 profile: user.profile,
                 status: user.status,
                 global_role_ids: user.global_role_ids,
+                subscription_plan: user.subscription_plan,
+                is_vip: user.is_vip,
+                subscription_expires_at: user.subscription_expires_at,
+                vip_expires_at: user.vip_expires_at,
             },
             tokens: {
                 access: { token: accessToken },

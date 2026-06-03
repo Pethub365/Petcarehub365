@@ -10,16 +10,16 @@ import { getStorageItem, setStorageItem } from '../../utils/storage';
 
 export default function HomeScreen() {
   const isDark = useColorScheme() === 'dark';
-  
+
   const bgColors = {
-      main: '#FAF9F9',
-      card: '#fff',
-      text: '#1B2530',
-      subtext: '#8A9AA9',
-      border: '#FFEBEB',
-      redBg: '#FFF5F5',
-      redBorder: '#FFEBEB',
-      iconBg: '#F8F8F8'
+    main: '#FAF9F9',
+    card: '#fff',
+    text: '#1B2530',
+    subtext: '#8A9AA9',
+    border: '#FFEBEB',
+    redBg: '#FFF5F5',
+    redBorder: '#FFEBEB',
+    iconBg: '#F8F8F8'
   };
 
   const [pets, setPets] = useState<any[]>([]);
@@ -63,11 +63,11 @@ export default function HomeScreen() {
     const now = Date.now();
     const diff = target - now;
     if (diff <= 0) return 'Sẵn sàng';
-    
+
     const h = Math.floor(diff / (1000 * 60 * 60));
     const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     const s = Math.floor((diff % (1000 * 60)) / 1000);
-    
+
     const pad = (n: number) => String(n).padStart(2, '0');
     return `${pad(h)}:${pad(m)}:${pad(s)}`;
   };
@@ -88,7 +88,7 @@ export default function HomeScreen() {
 
       if (petRes && petRes.success) {
         const petList = petRes.data.pets || [];
-        
+
         if (petList.length > 0) {
           setPets(petList);
           // Xem trước đó đã chọn thú cưng nào chưa
@@ -100,7 +100,7 @@ export default function HomeScreen() {
           setSelectedPet(currentPet);
           await setStorageItem('selectedPetId', currentPet._id);
           await loadQuests(currentPet._id);
-          
+
           // Auto choose single pet mode if only 1 pet
           if (petList.length === 1) {
             setLayoutMode('single');
@@ -108,55 +108,9 @@ export default function HomeScreen() {
             setLayoutMode('multi');
           }
         } else {
-          // Mock data to showcase the design when no pets are in the DB
-          const mockPets = [
-            {
-              _id: 'mock_mochi',
-              name: 'Mochi',
-              breed: 'Chó Corgi',
-              species: 'DOG',
-              avatar_url: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?q=80&w=200',
-              stats: { level: 12, xp: 1300 }
-            },
-            {
-              _id: 'mock_luna',
-              name: 'Luna',
-              breed: 'Mèo Mỹ',
-              species: 'CAT',
-              avatar_url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=200',
-              stats: { level: 8, xp: 600 }
-            }
-          ];
-          setPets(mockPets);
-          setSelectedPet(mockPets[0]);
-          setLayoutMode('multi');
-          // Load mock quests
-          setQuests([
-            {
-              _id: 'mock_q1',
-              title: 'Bữa sáng',
-              description: '08:00 AM • Hạt & Nước',
-              category: 'NUTRITION',
-              status: 'COMPLETED',
-              reward_xp: 30
-            },
-            {
-              _id: 'mock_q2',
-              title: 'Đi dạo buổi sáng',
-              description: '09:30 AM • Mục tiêu 30 phút',
-              category: 'DAILY_ROUTINE',
-              status: 'IN_PROGRESS',
-              reward_xp: 50
-            },
-            {
-              _id: 'mock_q3',
-              title: 'Chải lông',
-              description: '06:00 PM • Chăm sóc lông',
-              category: 'TRAINING',
-              status: 'PENDING',
-              reward_xp: 20
-            }
-          ]);
+          setPets([]);
+          setSelectedPet(null);
+          setQuests([]);
         }
       }
     } catch (error) {
@@ -265,11 +219,11 @@ export default function HomeScreen() {
             <TouchableOpacity style={styles.menuIconCircle} onPress={() => Alert.alert('Menu', 'Tính năng Menu mở rộng đang được phát triển.')}>
               <Ionicons name="menu-sharp" size={20} color="#1B2530" />
             </TouchableOpacity>
-            
+
             <TouchableOpacity onPress={toggleLayoutMode} activeOpacity={0.8}>
               <Text style={styles.headerTitleCenter}>PetCare Hub</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity style={styles.bellIconCircle} onPress={() => router.push('/notifications')}>
               <Ionicons name="notifications" size={20} color="#1B2530" />
             </TouchableOpacity>
@@ -281,63 +235,78 @@ export default function HomeScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#EC4B4B" />
         </View>
+      ) : pets.length === 0 ? (
+        <ScrollView contentContainerStyle={styles.emptyContainer} showsVerticalScrollIndicator={false}>
+          <Ionicons name="paw-outline" size={80} color="#FFEBEB" style={{ marginBottom: 20 }} />
+          <Text style={styles.emptyStateText}>Bạn chưa tạo hồ sơ thú cưng nào</Text>
+          <Text style={{ color: bgColors.subtext, fontSize: 13, textAlign: 'center', marginBottom: 24, paddingHorizontal: 20, lineHeight: 18 }}>
+            Hãy thêm thú cưng của bạn để bắt đầu theo dõi sức khỏe và thực hiện các nhiệm vụ hàng ngày nhé!
+          </Text>
+          <TouchableOpacity
+            style={styles.setupBtn}
+            onPress={() => router.push('/(setup)/pet-setup-1')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.setupBtnText}>Tạo thú cưng ngay →</Text>
+          </TouchableOpacity>
+        </ScrollView>
       ) : (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          
+        <ScrollView contentContainerStyle={[styles.content, layoutMode === 'multi' && { padding: 20 }]} showsVerticalScrollIndicator={false}>
+
           {layoutMode === 'multi' ? (
             /* ========================================================
                MULTI-PET LAYOUT (giao diện multipet)
                ======================================================== */
             <View>
               <Text style={[styles.sectionTitle, { color: bgColors.text }]}>Thú cưng của bạn</Text>
-              
+
               <View style={styles.petScroll}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   {pets.map((pet, idx) => {
-                     const isSelected = selectedPet && selectedPet._id === pet._id;
-                     const showCompleted = pet._id?.startsWith('mock_') 
-                       ? pet._id === 'mock_mochi' 
-                       : !!pet.isTodayQuestsCompleted;
-                     return (
-                       <TouchableOpacity 
-                          key={pet._id} 
-                          style={styles.petAvatarWrapper}
-                          onPress={() => handleSelectPet(pet)}
-                       >
-                           <View style={[styles.petAvatarRing, isSelected && styles.petAvatarRingActive]}>
-                               <View style={styles.petIconPlaceholder}>
-                                   {pet.avatar_url ? (
-                                       <Image source={{ uri: pet.avatar_url }} style={styles.petImage} />
-                                   ) : (
-                                       <Ionicons name="paw" size={28} color={isSelected ? '#EC4B4B' : '#8A9AA9'} />
-                                   )}
-                               </View>
-                               {/* Green check or exclamation alert badge */}
-                               {showCompleted ? (
-                                 <View style={[styles.petBadge, { backgroundColor: '#27AE60' }]}>
-                                   <Ionicons name="checkmark" size={10} color="#fff" />
-                                 </View>
-                               ) : (
-                                 <View style={[styles.petBadge, { backgroundColor: '#EB5757' }]}>
-                                   <Text style={styles.petBadgeTextAlert}>!</Text>
-                                 </View>
-                               )}
-                           </View>
-                           <Text style={[
-                             styles.petName, 
-                             isSelected && styles.petNameSelected, 
-                             { color: isSelected ? '#EC4B4B' : bgColors.text }
-                           ]} numberOfLines={1}>
-                             {pet.name}
-                           </Text>
-                       </TouchableOpacity>
-                     );
+                    const isSelected = selectedPet && selectedPet._id === pet._id;
+                    const showCompleted = pet._id?.startsWith('mock_')
+                      ? pet._id === 'mock_mochi'
+                      : !!pet.isTodayQuestsCompleted;
+                    return (
+                      <TouchableOpacity
+                        key={pet._id}
+                        style={styles.petAvatarWrapper}
+                        onPress={() => handleSelectPet(pet)}
+                      >
+                        <View style={[styles.petAvatarRing, isSelected && styles.petAvatarRingActive]}>
+                          <View style={styles.petIconPlaceholder}>
+                            {pet.avatar_url ? (
+                              <Image source={{ uri: pet.avatar_url }} style={styles.petImage} />
+                            ) : (
+                              <Ionicons name="paw" size={28} color={isSelected ? '#EC4B4B' : '#8A9AA9'} />
+                            )}
+                          </View>
+                          {/* Green check or exclamation alert badge */}
+                          {showCompleted ? (
+                            <View style={[styles.petBadge, { backgroundColor: '#27AE60' }]}>
+                              <Ionicons name="checkmark" size={10} color="#fff" />
+                            </View>
+                          ) : (
+                            <View style={[styles.petBadge, { backgroundColor: '#EB5757' }]}>
+                              <Text style={styles.petBadgeTextAlert}>!</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={[
+                          styles.petName,
+                          isSelected && styles.petNameSelected,
+                          { color: isSelected ? '#EC4B4B' : bgColors.text }
+                        ]} numberOfLines={1}>
+                          {pet.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
                   })}
                   <TouchableOpacity style={styles.petAvatarWrapper} onPress={() => router.push('/(setup)/pet-setup-1')}>
-                      <View style={styles.petAvatarRingDashed}>
-                           <Ionicons name="add" size={24} color="#8A9AA9" />
-                      </View>
-                      <Text style={[styles.petName, { color: bgColors.subtext }]}>Thêm thú cưng</Text>
+                    <View style={styles.petAvatarRingDashed}>
+                      <Ionicons name="add" size={24} color="#8A9AA9" />
+                    </View>
+                    <Text style={[styles.petName, { color: bgColors.subtext }]}>Thêm thú cưng</Text>
                   </TouchableOpacity>
                 </ScrollView>
               </View>
@@ -372,7 +341,7 @@ export default function HomeScreen() {
                       const isLocked = !!quest.isLocked;
                       const isDone = quest.status === 'COMPLETED';
                       const isWorking = quest.status === 'IN_PROGRESS';
-                      
+
                       let progressPercent = 0;
                       let statusText = 'TRẠNG THÁI: SẮP TỚI';
                       let iconName = 'restaurant';
@@ -410,8 +379,8 @@ export default function HomeScreen() {
                       }
 
                       return (
-                        <TouchableOpacity 
-                          key={quest._id} 
+                        <TouchableOpacity
+                          key={quest._id}
                           style={[styles.taskCard, isLocked && { opacity: 0.6 }]}
                           onPress={() => {
                             if (isLocked) {
@@ -437,7 +406,7 @@ export default function HomeScreen() {
                               <Text style={styles.taskDescText}>
                                 {isLocked ? `Chưa đến giờ ăn tiếp theo. Mở khóa sau: ${quest.unlocksAt ? getCountdownText(quest.unlocksAt) : '5 giờ'}` : quest.description}
                               </Text>
-                              
+
                               <View style={styles.rewardsRow}>
                                 <View style={styles.rewardXpBadge}>
                                   <FontAwesome5 name="star" size={9} color="#27AE60" style={{ marginRight: 4 }} />
@@ -449,7 +418,7 @@ export default function HomeScreen() {
                                 </View>
                               </View>
                             </View>
-                            
+
                             {/* Done checkmark, lock icon or solid grey circle */}
                             {isLocked ? (
                               <View style={[styles.taskCheckWrapper, { backgroundColor: '#ECEFF1' }]}>
@@ -487,11 +456,11 @@ export default function HomeScreen() {
                SINGLE-PET LAYOUT (gd 1pet)
                ======================================================== */
             <View>
-              {/* Pet Banner Card */}
+              {/* Pet Banner Card — no padding, image flush to header */}
               <View style={styles.petCardSingle}>
-                <Image 
-                  source={{ uri: selectedPet?.avatar_url || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=300' }} 
-                  style={styles.petCardSingleImage} 
+                <Image
+                  source={{ uri: selectedPet?.avatar_url || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=300' }}
+                  style={styles.petCardSingleImage}
                   resizeMode="cover"
                 />
                 <View style={styles.petCardSingleInfoRow}>
@@ -502,7 +471,7 @@ export default function HomeScreen() {
                       <Text style={styles.petCardSingleMoodText}>😊 Mood: Happy</Text>
                     </View>
                   </View>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.petCardSingleStartBtn}
                     onPress={() => router.push('/mission-detail')}
                   >
@@ -510,97 +479,100 @@ export default function HomeScreen() {
                   </TouchableOpacity>
                 </View>
               </View>
+              {/* Spacer for cards below */}
+              <View style={{ paddingHorizontal: 16 }}>
 
-              {/* My Profile Section */}
-              <View style={styles.profileSection}>
-                <View style={styles.profileMeta}>
-                  <Text style={styles.profileSectionLabel}>My Profile</Text>
-                  <Text style={styles.profileUserName}>
-                    {currentUser?.profile?.full_name || currentUser?.email?.split('@')[0] || 'User1'}
-                  </Text>
-                  <View style={styles.badgeRow}>
-                    <View style={styles.profileLevelCapsule}>
-                      <Text style={styles.profileLevelText}>LEVEL {selectedPet?.stats?.level || 12}</Text>
+                {/* My Profile Section */}
+                <View style={styles.profileSection}>
+                  <View style={styles.profileMeta}>
+                    <Text style={styles.profileSectionLabel}>My Profile</Text>
+                    <Text style={styles.profileUserName}>
+                      {currentUser?.profile?.full_name || currentUser?.email?.split('@')[0] || 'User1'}
+                    </Text>
+                    <View style={styles.badgeRow}>
+                      <View style={styles.profileLevelCapsule}>
+                        <Text style={styles.profileLevelText}>LEVEL {selectedPet?.stats?.level || 12}</Text>
+                      </View>
+                      <View style={styles.profileStreakCapsule}>
+                        <Text style={styles.profileStreakText}>🔥 7-day streak</Text>
+                      </View>
                     </View>
-                    <View style={styles.profileStreakCapsule}>
-                      <Text style={styles.profileStreakText}>🔥 7-day streak</Text>
-                    </View>
                   </View>
+                  {currentUser?.profile?.avatar_url ? (
+                    <Image
+                      source={{ uri: currentUser.profile.avatar_url }}
+                      style={styles.userAvatarImage}
+                    />
+                  ) : (
+                    <Image
+                      source={{ uri: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200' }}
+                      style={styles.userAvatarImage}
+                    />
+                  )}
                 </View>
-                {currentUser?.profile?.avatar_url ? (
-                  <Image 
-                    source={{ uri: currentUser.profile.avatar_url }}
-                    style={styles.userAvatarImage}
-                  />
-                ) : (
-                  <Image 
-                    source={{ uri: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200' }}
-                    style={styles.userAvatarImage}
-                  />
-                )}
-              </View>
 
-              {/* Progress Level Card */}
-              <View style={styles.levelProgressCard}>
-                <View style={styles.levelCardTop}>
-                  <View style={styles.levelCardTopLeft}>
-                    <Ionicons name="ribbon" size={18} color="#EC4B4B" />
-                    <Text style={styles.levelProgressTitle}>Tiến trình hiện tại</Text>
+                {/* Progress Level Card */}
+                <View style={styles.levelProgressCard}>
+                  <View style={styles.levelCardTop}>
+                    <View style={styles.levelCardTopLeft}>
+                      <Ionicons name="ribbon" size={18} color="#EC4B4B" />
+                      <Text style={styles.levelProgressTitle}>Tiến trình hiện tại</Text>
+                    </View>
+                    <Text style={styles.levelProgressDiff}>
+                      {selectedPet?.stats?.xp || 1300}/{((selectedPet?.stats?.level || 12) * 100 + 800) || 2000} XP
+                    </Text>
                   </View>
-                  <Text style={styles.levelProgressDiff}>
-                    {selectedPet?.stats?.xp || 1300}/{((selectedPet?.stats?.level || 12) * 100 + 800) || 2000} XP
+
+                  {/* Progress bar */}
+                  <View style={styles.levelProgressBg}>
+                    <View style={[
+                      styles.levelProgressFill,
+                      {
+                        width: `${Math.min(100, Math.round(((selectedPet?.stats?.xp || 1300) / ((selectedPet?.stats?.level || 12) * 100 + 800)) * 100))}%`
+                      }
+                    ]} />
+                  </View>
+
+                  <Text style={styles.levelProgressSub}>
+                    {Math.min(100, Math.round(((selectedPet?.stats?.xp || 1300) / ((selectedPet?.stats?.level || 12) * 100 + 800)) * 100))}% to Level {(selectedPet?.stats?.level || 12) + 1}! Giữ vững phong độ !
                   </Text>
                 </View>
 
-                {/* Progress bar */}
-                <View style={styles.levelProgressBg}>
-                  <View style={[
-                    styles.levelProgressFill, 
-                    { 
-                      width: `${Math.min(100, Math.round(((selectedPet?.stats?.xp || 1300) / ((selectedPet?.stats?.level || 12) * 100 + 800)) * 100))}%` 
-                    }
-                  ]} />
+                {/* 3 Quick Action Cards */}
+                <View style={styles.quickActionsRow}>
+                  <TouchableOpacity
+                    style={styles.quickActionCard}
+                    onPress={() => router.push('/mission-detail')}
+                  >
+                    <View style={[styles.quickActionIconWrap, { backgroundColor: '#E1F0FF' }]}>
+                      <Ionicons name="checkbox" size={20} color="#2D9CDB" />
+                    </View>
+                    <Text style={styles.quickActionTitle}>Nhiệm vụ</Text>
+                    <Text style={styles.quickActionVal}>4/5 Done</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.quickActionCard}
+                    onPress={() => router.push('/health-dashboard')}
+                  >
+                    <View style={[styles.quickActionIconWrap, { backgroundColor: '#E2FBE9' }]}>
+                      <Ionicons name="add-circle" size={20} color="#27AE60" />
+                    </View>
+                    <Text style={styles.quickActionTitle}>Sức khỏe</Text>
+                    <Text style={styles.quickActionVal}>Excellent</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.quickActionCard}
+                    onPress={() => router.push('/health-dashboard')}
+                  >
+                    <View style={[styles.quickActionIconWrap, { backgroundColor: '#F9EFFF' }]}>
+                      <Ionicons name="shield-checkmark" size={20} color="#C462FF" />
+                    </View>
+                    <Text style={styles.quickActionTitle}>Vaccine</Text>
+                    <Text style={styles.quickActionVal}>Up to date</Text>
+                  </TouchableOpacity>
                 </View>
-
-                <Text style={styles.levelProgressSub}>
-                  {Math.min(100, Math.round(((selectedPet?.stats?.xp || 1300) / ((selectedPet?.stats?.level || 12) * 100 + 800)) * 100))}% to Level {(selectedPet?.stats?.level || 12) + 1}! Giữ vững phong độ !
-                </Text>
-              </View>
-
-              {/* 3 Quick Action Cards */}
-              <View style={styles.quickActionsRow}>
-                <TouchableOpacity 
-                  style={styles.quickActionCard}
-                  onPress={() => router.push('/mission-detail')}
-                >
-                  <View style={[styles.quickActionIconWrap, { backgroundColor: '#E1F0FF' }]}>
-                    <Ionicons name="checkbox" size={20} color="#2D9CDB" />
-                  </View>
-                  <Text style={styles.quickActionTitle}>Nhiệm vụ</Text>
-                  <Text style={styles.quickActionVal}>4/5 Done</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                  style={styles.quickActionCard}
-                  onPress={() => router.push('/health-dashboard')}
-                >
-                  <View style={[styles.quickActionIconWrap, { backgroundColor: '#E2FBE9' }]}>
-                    <Ionicons name="add-circle" size={20} color="#27AE60" />
-                  </View>
-                  <Text style={styles.quickActionTitle}>Sức khỏe</Text>
-                  <Text style={styles.quickActionVal}>Excellent</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                  style={styles.quickActionCard}
-                  onPress={() => router.push('/health-dashboard')}
-                >
-                  <View style={[styles.quickActionIconWrap, { backgroundColor: '#F9EFFF' }]}>
-                    <Ionicons name="shield-checkmark" size={20} color="#C462FF" />
-                  </View>
-                  <Text style={styles.quickActionTitle}>Vaccine</Text>
-                  <Text style={styles.quickActionVal}>Up to date</Text>
-                </TouchableOpacity>
               </View>
             </View>
           )}
@@ -634,12 +606,12 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    paddingHorizontal: 20, 
-    paddingVertical: 14, 
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     backgroundColor: '#fff',
   },
   headerMulti: {
@@ -684,33 +656,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  content: { padding: 20, paddingBottom: 60 },
+  content: { padding: 0, paddingBottom: 60 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', height: 400 },
   emptyText: { textAlign: 'center', color: '#8A9AA9', marginVertical: 20, fontWeight: '500' },
-  
+
   /* ========================================================
      MULTI-PET STYLE
      ======================================================== */
   sectionTitle: { fontSize: 15, fontWeight: 'bold', marginBottom: 16, color: '#1B2530' },
   petScroll: { flexDirection: 'row', marginBottom: 20 },
   petAvatarWrapper: { alignItems: 'center', marginRight: 16, width: 75 },
-  petAvatarRing: { 
-    width: 66, 
-    height: 66, 
-    borderRadius: 33, 
-    borderWidth: 2, 
+  petAvatarRing: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    borderWidth: 2,
     borderColor: '#E0E5EC',
-    justifyContent: 'center', 
+    justifyContent: 'center',
     alignItems: 'center',
     position: 'relative'
   },
   petAvatarRingActive: { borderColor: '#EC4B4B' },
-  petAvatarRingDashed: { 
-    width: 66, 
-    height: 66, 
-    borderRadius: 33, 
-    borderWidth: 2, 
-    borderColor: '#8A9AA9', 
+  petAvatarRingDashed: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    borderWidth: 2,
+    borderColor: '#8A9AA9',
     borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',
@@ -718,14 +690,14 @@ const styles = StyleSheet.create({
   },
   petIconPlaceholder: { width: 58, height: 58, borderRadius: 29, backgroundColor: '#FFF5F5', overflow: 'hidden', justifyContent: 'center', alignItems: 'center' },
   petImage: { width: 58, height: 58, borderRadius: 29 },
-  petBadge: { 
-    position: 'absolute', 
-    bottom: -1, 
-    right: -1, 
-    width: 18, 
-    height: 18, 
-    borderRadius: 9, 
-    justifyContent: 'center', 
+  petBadge: {
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#FAF9F9'
@@ -737,24 +709,24 @@ const styles = StyleSheet.create({
   },
   petName: { fontSize: 12, marginTop: 6, fontWeight: '500', width: '100%', textAlign: 'center', color: '#1B2530' },
   petNameSelected: { fontWeight: 'bold', color: '#EC4B4B' },
-  
-  activePetStatusBanner: { 
-    flexDirection: 'row', 
-    backgroundColor: '#FFF0F0', 
-    borderRadius: 20, 
-    padding: 14, 
-    borderWidth: 1, 
+
+  activePetStatusBanner: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF0F0',
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
     borderColor: '#FFEBEB',
     marginBottom: 24,
     alignItems: 'center',
     gap: 12,
   },
-  statusSproutCircle: { 
-    width: 44, 
-    height: 44, 
-    borderRadius: 14, 
-    backgroundColor: '#EC4B4B', 
-    justifyContent: 'center', 
+  statusSproutCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#EC4B4B',
+    justifyContent: 'center',
     alignItems: 'center',
   },
   statusBannerTextContainer: {
@@ -772,39 +744,39 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '500',
   },
-  
+
   tasksSection: { marginTop: 4 },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   tasksTitle: { fontSize: 15, fontWeight: 'bold', color: '#1B2530' },
   viewAllText: { fontSize: 13, fontWeight: 'bold', color: '#EC4B4B' },
-  
+
   taskCard: { backgroundColor: '#fff', borderRadius: 24, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#FFEBEB' },
   taskTopRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   taskIconCircle: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   taskMeta: { flex: 1 },
   taskTitleText: { fontSize: 14, fontWeight: 'bold', color: '#1B2530', marginBottom: 3 },
   taskDescText: { fontSize: 12, color: '#8A9AA9', fontWeight: '500' },
-  
-  taskCheckWrapper: { 
-    width: 24, 
-    height: 24, 
-    borderRadius: 12, 
-    justifyContent: 'center', 
-    alignItems: 'center' 
+
+  taskCheckWrapper: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
-  taskCheckWrapperActive: { 
-    backgroundColor: '#EB5757', 
+  taskCheckWrapperActive: {
+    backgroundColor: '#EB5757',
   },
   taskCheckWrapperUnchecked: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#D0D4DC', 
+    backgroundColor: '#D0D4DC',
   },
-  
+
   taskProgressBg: { height: 6, backgroundColor: '#FFF0F0', borderRadius: 3, overflow: 'hidden', marginBottom: 10 },
   taskProgressFill: { height: '100%', backgroundColor: '#EC4B4B', borderRadius: 3 },
-  
+
   taskBottomRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   taskStatusText: { fontSize: 10, fontWeight: 'bold', color: '#8A9AA9' },
   taskProgressPercent: { fontSize: 10, fontWeight: 'bold', color: '#8A9AA9' },
@@ -814,11 +786,10 @@ const styles = StyleSheet.create({
      ======================================================== */
   petCardSingle: {
     backgroundColor: '#fff',
-    borderRadius: 24,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#FFEBEB',
-    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFEBEB',
+    marginBottom: 12,
     elevation: 2,
     shadowColor: '#EC4B4B',
     shadowOffset: { width: 0, height: 4 },
@@ -827,9 +798,7 @@ const styles = StyleSheet.create({
   },
   petCardSingleImage: {
     width: '100%',
-    height: 160,
-    borderTopLeftRadius: 23,
-    borderTopRightRadius: 23,
+    height: 420,
   },
   petCardSingleInfoRow: {
     flexDirection: 'row',
@@ -877,25 +846,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
-  
-  profileSection: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    backgroundColor: '#fff', 
-    padding: 16, 
-    borderRadius: 24, 
-    borderWidth: 1, 
-    borderColor: '#FFEBEB', 
-    marginBottom: 16 
+
+  profileSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FFEBEB',
+    marginBottom: 10
   },
   profileMeta: { flex: 1 },
-  profileSectionLabel: { 
-    fontSize: 10, 
-    color: '#EC4B4B', 
-    fontWeight: 'bold', 
+  profileSectionLabel: {
+    fontSize: 10,
+    color: '#EC4B4B',
+    fontWeight: 'bold',
     textTransform: 'uppercase',
-    marginBottom: 2 
+    marginBottom: 2
   },
   profileUserName: { fontSize: 18, fontWeight: 'bold', color: '#1B2530', marginBottom: 8 },
   badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -904,8 +873,8 @@ const styles = StyleSheet.create({
   profileStreakCapsule: { backgroundColor: '#FFF0F0', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12 },
   profileStreakText: { fontSize: 9, fontWeight: 'bold', color: '#EC4B4B' },
   userAvatarImage: { width: 60, height: 60, borderRadius: 30, borderWidth: 1, borderColor: '#FFEBEB' },
-  
-  levelProgressCard: { backgroundColor: '#fff', borderRadius: 24, padding: 18, borderWidth: 1, borderColor: '#FFEBEB', marginBottom: 16 },
+
+  levelProgressCard: { backgroundColor: '#fff', borderRadius: 20, padding: 14, borderWidth: 1, borderColor: '#FFEBEB', marginBottom: 10 },
   levelCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   levelCardTopLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   levelProgressTitle: { fontSize: 14, fontWeight: 'bold', color: '#1B2530' },
@@ -913,13 +882,13 @@ const styles = StyleSheet.create({
   levelProgressBg: { height: 10, backgroundColor: '#FFF0F0', borderRadius: 5, overflow: 'hidden', marginBottom: 10 },
   levelProgressFill: { height: '100%', backgroundColor: '#EC4B4B', borderRadius: 5 },
   levelProgressSub: { fontSize: 11, color: '#8A9AA9', fontWeight: 'bold' },
-  
+
   quickActionsRow: { flexDirection: 'row', gap: 12 },
   quickActionCard: { flex: 1, backgroundColor: '#fff', borderRadius: 24, padding: 16, borderWidth: 1, borderColor: '#FFEBEB', alignItems: 'center' },
   quickActionIconWrap: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
   quickActionTitle: { fontSize: 12, color: '#8A9AA9', fontWeight: 'bold', marginBottom: 4 },
   quickActionVal: { fontSize: 13, fontWeight: 'bold', color: '#1B2530' },
-  
+
   rewardsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1015,5 +984,31 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+    backgroundColor: 'transparent',
+    paddingTop: 100,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#8A9AA9',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  setupBtn: {
+    backgroundColor: '#EC4B4B',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+  },
+  setupBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

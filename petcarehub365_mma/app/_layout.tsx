@@ -29,6 +29,7 @@ export default function RootLayout() {
               <Stack.Screen name="checkout" options={{ headerShown: false }} />
               <Stack.Screen name="health-dashboard" options={{ headerShown: false }} />
               <Stack.Screen name="mission-detail" options={{ headerShown: false }} />
+              <Stack.Screen name="achievements-list" options={{ headerShown: false }} />
               <Stack.Screen name="family-management" options={{ headerShown: false }} />
               <Stack.Screen name="notifications" options={{ headerShown: false }} />
               <Stack.Screen name="change-password" options={{ headerShown: false }} />

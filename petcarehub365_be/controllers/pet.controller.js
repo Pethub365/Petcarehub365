@@ -2,8 +2,13 @@ const httpStatus = require('http-status');
 const mongoose = require('mongoose');
 const catchAsync = require('../utils/catchAsync');
 const { Pet } = require('../models');
-const cloudinary = require('../config/cloudinary');
 const ApiError = require('../utils/ApiError');
+
+// Chuyển file upload thành Base64 data URI để lưu trực tiếp vào MongoDB
+const fileToBase64DataURI = (file) => {
+    const b64 = Buffer.from(file.buffer).toString('base64');
+    return `data:${file.mimetype};base64,${b64}`;
+};
 
 // Helper to parse dob robustly
 const parseDob = (dob) => {
@@ -47,14 +52,9 @@ exports.createPet = catchAsync(async (req, res) => {
     const { name, species, breed, dob, weight, gender, is_neutered, health_status } = req.body;
 
     let avatar_url = null;
-    // Xử lý upload ảnh thú cưng lên Cloudinary nếu có file gửi lên
+    // Lưu ảnh dưới dạng Base64 trực tiếp vào MongoDB (không cần cloud)
     if (req.file) {
-        const b64 = Buffer.from(req.file.buffer).toString('base64');
-        const dataURI = `data:${req.file.mimetype};base64,${b64}`;
-        const result = await cloudinary.uploader.upload(dataURI, {
-            folder: 'petcarehub365/pets',
-        });
-        avatar_url = result.secure_url;
+        avatar_url = fileToBase64DataURI(req.file);
     }
 
     const pet = await Pet.create({
@@ -76,6 +76,19 @@ exports.createPet = catchAsync(async (req, res) => {
         }
     });
 
+    // Nếu user đã có nhóm gia đình, tự động thêm pet vào nhóm gia đình để cả nhà cùng quản lý
+    const { FamilyGroup } = require('../models');
+    const familyGroup = await FamilyGroup.findOne({ 'members.user_id': req.user._id });
+    if (familyGroup) {
+        if (!familyGroup.pet_ids) {
+            familyGroup.pet_ids = [];
+        }
+        if (!familyGroup.pet_ids.some(id => id.toString() === pet._id.toString())) {
+            familyGroup.pet_ids.push(pet._id);
+            await familyGroup.save();
+        }
+    }
+
     res.status(httpStatus.CREATED).json({
         success: true,
         message: 'Thú cưng đã được tạo thành công 🐾',
@@ -89,6 +102,19 @@ exports.getPets = catchAsync(async (req, res) => {
     
     // Tìm các nhóm gia đình mà user tham gia
     const familyGroups = await FamilyGroup.find({ 'members.user_id': req.user._id });
+    
+    // Tự động đồng bộ hóa pet của các thành viên nếu danh sách pet trong nhóm đang trống
+    for (const group of familyGroups) {
+        if (!group.pet_ids || group.pet_ids.length === 0) {
+            const memberUserIds = group.members.map(m => m.user_id);
+            const petsOfMembers = await Pet.find({ owner_id: { $in: memberUserIds } });
+            if (petsOfMembers.length > 0) {
+                group.pet_ids = petsOfMembers.map(p => p._id);
+                await group.save();
+            }
+        }
+    }
+
     const familyPetIds = familyGroups.reduce((acc, group) => {
         if (group.pet_ids && group.pet_ids.length > 0) {
             group.pet_ids.forEach(id => acc.push(id));
@@ -188,14 +214,9 @@ exports.updatePet = catchAsync(async (req, res) => {
 
     const { name, species, breed, dob, weight, gender, is_neutered, health_status } = req.body;
 
-    // Cập nhật ảnh đại diện lên Cloudinary nếu có file mới
+    // Cập nhật ảnh đại diện dưới dạng Base64 trực tiếp vào MongoDB (không cần cloud)
     if (req.file) {
-        const b64 = Buffer.from(req.file.buffer).toString('base64');
-        const dataURI = `data:${req.file.mimetype};base64,${b64}`;
-        const result = await cloudinary.uploader.upload(dataURI, {
-            folder: 'petcarehub365/pets',
-        });
-        pet.avatar_url = result.secure_url;
+        pet.avatar_url = fileToBase64DataURI(req.file);
     }
 
     if (name !== undefined) pet.name = name;
@@ -226,6 +247,13 @@ exports.deletePet = catchAsync(async (req, res) => {
     if (pet.owner_id.toString() !== req.user._id.toString()) {
         throw new ApiError(httpStatus.FORBIDDEN, 'Chỉ chủ sở hữu mới có quyền xóa hồ sơ thú cưng');
     }
+
+    // Xóa liên kết thú cưng trong các nhóm gia đình
+    const { FamilyGroup } = require('../models');
+    await FamilyGroup.updateMany(
+        { pet_ids: pet._id },
+        { $pull: { pet_ids: pet._id } }
+    );
 
     await Pet.findByIdAndDelete(req.params.id);
 
@@ -275,13 +303,43 @@ exports.getLeaderboard = catchAsync(async (req, res) => {
                             }
                         }
                     ],
-                    as: 'completedQuests'
+                    as: 'completedDailyQuests'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'weeklyquests',
+                    let: { petId: '$_id' },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ['$pet_id', '$$petId'] },
+                                        { $eq: ['$status', 'COMPLETED'] },
+                                        { $gte: ['$completed_at', startDate] }
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    as: 'completedWeeklyQuests'
                 }
             },
             {
                 $addFields: {
-                    'stats.xp': { $sum: '$completedQuests.reward_xp' },
-                    'stats.challenges_won': { $size: '$completedQuests' }
+                    'stats.xp': { 
+                        $add: [
+                            { $sum: '$completedDailyQuests.reward_xp' },
+                            { $sum: '$completedWeeklyQuests.reward_xp' }
+                        ]
+                    },
+                    'stats.challenges_won': { 
+                        $add: [
+                            { $size: '$completedDailyQuests' },
+                            { $size: '$completedWeeklyQuests' }
+                        ]
+                    }
                 }
             },
             { $sort: { 'stats.xp': -1 } },
@@ -312,12 +370,36 @@ exports.getLeaderboard = catchAsync(async (req, res) => {
                             }
                         }
                     ],
-                    as: 'completedQuests'
+                    as: 'completedDailyQuests'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'weeklyquests',
+                    let: { petId: '$_id' },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ['$pet_id', '$$petId'] },
+                                        { $eq: ['$status', 'COMPLETED'] }
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    as: 'completedWeeklyQuests'
                 }
             },
             {
                 $addFields: {
-                    'stats.challenges_won': { $size: '$completedQuests' }
+                    'stats.challenges_won': { 
+                        $add: [
+                            { $size: '$completedDailyQuests' },
+                            { $size: '$completedWeeklyQuests' }
+                        ]
+                    }
                 }
             },
             { $sort: { 'stats.xp': -1 } },
@@ -342,19 +424,32 @@ exports.getLeaderboard = catchAsync(async (req, res) => {
 
                 if (startDate) {
                     const DailyQuest = mongoose.model('DailyQuest');
-                    const completedQuests = await DailyQuest.find({
+                    const WeeklyQuest = mongoose.model('WeeklyQuest');
+                    const completedDaily = await DailyQuest.find({
                         pet_id: currentPetId,
                         status: 'COMPLETED',
                         completed_at: { $gte: startDate }
                     });
-                    petXp = completedQuests.reduce((sum, q) => sum + (q.reward_xp || 0), 0);
-                    challengesWon = completedQuests.length;
+                    const completedWeekly = await WeeklyQuest.find({
+                        pet_id: currentPetId,
+                        status: 'COMPLETED',
+                        completed_at: { $gte: startDate }
+                    });
+                    petXp = completedDaily.reduce((sum, q) => sum + (q.reward_xp || 0), 0) + 
+                            completedWeekly.reduce((sum, q) => sum + (q.reward_xp || 0), 0);
+                    challengesWon = completedDaily.length + completedWeekly.length;
                 } else {
                     const DailyQuest = mongoose.model('DailyQuest');
-                    challengesWon = await DailyQuest.countDocuments({
+                    const WeeklyQuest = mongoose.model('WeeklyQuest');
+                    const dailyCount = await DailyQuest.countDocuments({
                         pet_id: currentPetId,
                         status: 'COMPLETED'
                     });
+                    const weeklyCount = await WeeklyQuest.countDocuments({
+                        pet_id: currentPetId,
+                        status: 'COMPLETED'
+                    });
+                    challengesWon = dailyCount + weeklyCount;
                 }
 
                 const petObj = pet.toObject();
@@ -385,12 +480,37 @@ exports.getLeaderboard = catchAsync(async (req, res) => {
                                         }
                                     }
                                 ],
-                                as: 'completedQuests'
+                                as: 'completedDailyQuests'
+                            }
+                        },
+                        {
+                            $lookup: {
+                                from: 'weeklyquests',
+                                let: { petId: '$_id' },
+                                pipeline: [
+                                    {
+                                        $match: {
+                                            $expr: {
+                                                $and: [
+                                                    { $eq: ['$pet_id', '$$petId'] },
+                                                    { $eq: ['$status', 'COMPLETED'] },
+                                                    { $gte: ['$completed_at', startDate] }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                ],
+                                as: 'completedWeeklyQuests'
                             }
                         },
                         {
                             $addFields: {
-                                periodXp: { $sum: '$completedQuests.reward_xp' }
+                                periodXp: { 
+                                    $add: [
+                                        { $sum: '$completedDailyQuests.reward_xp' },
+                                        { $sum: '$completedWeeklyQuests.reward_xp' }
+                                    ]
+                                }
                             }
                         },
                         {

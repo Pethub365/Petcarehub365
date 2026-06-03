@@ -9,9 +9,14 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Ionicons } from '@expo/vector-icons';
 import familyApi from '../apis/familyApi';
 import dailyQuestApi from '../apis/dailyQuestApi';
+import petApi from '../apis/petApi';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function FamilyManagementScreen() {
   const isDark = useColorScheme() === 'dark';
+  const { user, refreshUser } = useAuth();
+  const isVip = (user?.subscription_plan === 'VIP' || user?.is_vip === true) &&
+    (!user?.subscription_expires_at || new Date(user.subscription_expires_at) > new Date());
 
   const bgColors = {
     main: isDark ? '#121212' : '#F8F9FA',
@@ -33,6 +38,7 @@ export default function FamilyManagementScreen() {
   const [joinModalVisible, setJoinModalVisible] = useState(false);
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
   const [assignModalVisible, setAssignModalVisible] = useState(false);
+  const [managePetsModalVisible, setManagePetsModalVisible] = useState(false);
   const [showQuestsSection, setShowQuestsSection] = useState(false);
 
   // Form states
@@ -41,10 +47,17 @@ export default function FamilyManagementScreen() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [selectedQuest, setSelectedQuest] = useState<any | null>(null);
 
+  // Pets management state
+  const [userPets, setUserPets] = useState<any[]>([]);
+  const [selectedPetIds, setSelectedPetIds] = useState<string[]>([]);
+  const [loadingPets, setLoadingPets] = useState(false);
+  const [pendingInvitations, setPendingInvitations] = useState<any[]>([]);
+
   // Loading indicator for actions
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    refreshUser().catch((err: any) => console.error("Error refreshing user context:", err));
     fetchFamilyData();
   }, []);
 
@@ -54,7 +67,7 @@ export default function FamilyManagementScreen() {
       const res = await familyApi.getFamilyGroup() as any;
       if (res && res.success && res.data) {
         setFamilyGroup(res.data);
-        
+
         // If there are pets in the family, load their quests in parallel
         const pets = res.data.pet_ids || [];
         if (pets.length > 0) {
@@ -81,6 +94,15 @@ export default function FamilyManagementScreen() {
       } else {
         setFamilyGroup(null);
         setFamilyQuests([]);
+        // Fetch pending invitations
+        try {
+          const inviteRes = await familyApi.getPendingInvitations() as any;
+          if (inviteRes && inviteRes.success) {
+            setPendingInvitations(inviteRes.data || []);
+          }
+        } catch (err) {
+          console.error('Error fetching pending invitations:', err);
+        }
       }
     } catch (error) {
       console.error('Error fetching family data:', error);
@@ -174,6 +196,81 @@ export default function FamilyManagementScreen() {
     setAssignModalVisible(true);
   };
 
+  const openManagePetsModal = async () => {
+    if (!isVip) {
+      Alert.alert('Gói VIP yêu cầu', 'Chức năng Quản lý Thú cưng gia đình chỉ dành riêng cho tài khoản gói VIP. Vui lòng nâng cấp gói cước.');
+      return;
+    }
+    setManagePetsModalVisible(true);
+    try {
+      setLoadingPets(true);
+      const res = await petApi.getPets() as any;
+      if (res && res.success) {
+        setUserPets(res.data.pets || []);
+      }
+      // Initialize selected pet IDs from currently linked family pets
+      const currentPetIds = familyGroup?.pet_ids?.map((p: any) => p._id) || [];
+      setSelectedPetIds(currentPetIds);
+    } catch (err) {
+      console.error('Error fetching pets for management:', err);
+      Alert.alert('Lỗi', 'Không thể tải danh sách thú cưng của bạn.');
+    } finally {
+      setLoadingPets(false);
+    }
+  };
+
+  const handleUpdateFamilyPets = async () => {
+    try {
+      setSubmitting(true);
+      const res = await familyApi.updateFamilyPets(selectedPetIds) as any;
+      setSubmitting(false);
+      if (res && res.success) {
+        Alert.alert('Thành công', 'Cập nhật danh sách thú cưng gia đình thành công!');
+        setManagePetsModalVisible(false);
+        fetchFamilyData();
+      }
+    } catch (err: any) {
+      setSubmitting(false);
+      Alert.alert('Lỗi', err.response?.data?.message || 'Không thể cập nhật danh sách thú cưng gia đình.');
+    }
+  };
+
+  const togglePetSelection = (petId: string) => {
+    setSelectedPetIds(prev =>
+      prev.includes(petId)
+        ? prev.filter(id => id !== petId)
+        : [...prev, petId]
+    );
+  };
+
+  const handleRemoveMember = async (memberId: string, memberName: string) => {
+    Alert.alert(
+      'Xóa thành viên 🏠',
+      `Bạn có chắc chắn muốn xóa "${memberName}" khỏi nhóm gia đình này không?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa thành viên',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setSubmitting(true);
+              const res = await familyApi.removeMember(memberId) as any;
+              setSubmitting(false);
+              if (res && res.success) {
+                Alert.alert('Thành công', `Đã xóa thành viên "${memberName}" khỏi nhóm gia đình.`);
+                fetchFamilyData();
+              }
+            } catch (err: any) {
+              setSubmitting(false);
+              Alert.alert('Lỗi', err.response?.data?.message || 'Không thể xóa thành viên.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   // Helper: Trả về tên hiển thị của người được phân công
   const getAssigneeName = (assignedToId: string) => {
     if (!familyGroup) {
@@ -197,42 +294,50 @@ export default function FamilyManagementScreen() {
 
   // Setup Mock Preview data if API doesn't return group (to match Figma)
   const isMockPreview = !familyGroup;
-  
-  const displayPet = (familyGroup?.pet_ids && familyGroup.pet_ids.length > 0)
-    ? familyGroup.pet_ids[0]
-    : {
+
+  const isFamilyAdmin = isMockPreview || familyGroup?.members?.some(
+    (m: any) => String(m.user_id?._id || m.user_id) === String(user?._id) && m.role === 'ADMIN'
+  );
+
+  const displayPets = (familyGroup?.pet_ids && familyGroup.pet_ids.length > 0)
+    ? familyGroup.pet_ids
+    : [
+      {
         _id: 'mock-mochi',
         name: 'Mochi the Corgi',
         avatar_url: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=200',
         member_count: 'Thành viên chung'
-      };
+      }
+    ];
+
+  const displayPet = displayPets[0];
 
   const displayMembers = (familyGroup?.members && familyGroup.members.length > 0)
     ? familyGroup.members
     : [
-        {
-          user_id: {
-            _id: 'mock-luc',
-            email: 'luc.nguyen@petcarehub.vn',
-            profile: {
-              full_name: 'Nguyễn Trọng Lực',
-              avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150'
-            }
-          },
-          role: 'ADMIN'
+      {
+        user_id: {
+          _id: 'mock-luc',
+          email: 'luc.nguyen@petcarehub.vn',
+          profile: {
+            full_name: 'Nguyễn Trọng Lực',
+            avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150'
+          }
         },
-        {
-          user_id: {
-            _id: 'mock-ha',
-            email: 'ha.le@petcarehub.vn',
-            profile: {
-              full_name: 'Lê Thu Hà',
-              avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150'
-            }
-          },
-          role: 'MEMBER'
-        }
-      ];
+        role: 'ADMIN'
+      },
+      {
+        user_id: {
+          _id: 'mock-ha',
+          email: 'ha.le@petcarehub.vn',
+          profile: {
+            full_name: 'Lê Thu Hà',
+            avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150'
+          }
+        },
+        role: 'MEMBER'
+      }
+    ];
 
   const displayQuests = !isMockPreview ? familyQuests : [
     {
@@ -297,227 +402,326 @@ export default function FamilyManagementScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        
-        {/* Banner Alert for Mock Preview mode (offers quick Actions) */}
-        {isMockPreview && (
-          <View style={[styles.previewBanner, { backgroundColor: bgColors.pinkBg, borderColor: bgColors.pinkBorder }]}>
-            <View style={styles.previewBannerHeader}>
-              <IconSymbol name="sparkles" size={16} color={bgColors.primary} />
-              <Text style={[styles.previewBannerTitle, { color: bgColors.primary }]}>Chế độ xem trước Figma</Text>
-            </View>
-            <Text style={[styles.previewBannerText, { color: bgColors.text }]}>
-              Bạn chưa thiết lập nhóm gia đình. Tạo nhóm mới hoặc gia nhập nhóm của người thân:
-            </Text>
-            <View style={styles.previewBtnRow}>
-              <TouchableOpacity style={[styles.previewBtn, { backgroundColor: bgColors.primary }]} onPress={() => setCreateModalVisible(true)}>
-                <Text style={styles.previewBtnText}>Tạo nhóm mới</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.previewBtn, styles.previewBtnOutline, { borderColor: bgColors.primary }]} onPress={() => setJoinModalVisible(true)}>
-                <Text style={[styles.previewBtnTextOutline, { color: bgColors.primary }]}>Gia nhập nhóm</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
 
-        {/* Pet Card Section */}
-        <TouchableOpacity 
-          style={[styles.petCard, { backgroundColor: bgColors.card, borderColor: bgColors.border }]}
-          onPress={() => router.push('/(tabs)/pets')}
-          activeOpacity={0.8}
-        >
-          <Image 
-            source={{ uri: displayPet.avatar_url }} 
-            style={styles.petAvatarImage} 
-          />
-          <View style={styles.petInfo}>
-            <Text style={[styles.petNameText, { color: bgColors.text }]}>{displayPet.name}</Text>
-            <View style={styles.statusRow}>
-              <IconSymbol name="person.3.fill" size={14} color={bgColors.primary} />
-              <Text style={[styles.statusText, { color: bgColors.primary }]}>Thành viên chung</Text>
+        {!familyGroup ? (
+          <View>
+            <View style={[styles.previewBanner, { backgroundColor: bgColors.pinkBg, borderColor: bgColors.pinkBorder }]}>
+              <View style={styles.previewBannerHeader}>
+                <Ionicons name="home" size={20} color={bgColors.primary} />
+                <Text style={[styles.previewBannerTitle, { color: bgColors.primary, fontSize: 16, fontWeight: '700', marginLeft: 6 }]}>Chưa tham gia gia đình</Text>
+              </View>
+              <Text style={[styles.previewBannerText, { color: bgColors.text, fontSize: 13, marginTop: 10, lineHeight: 20 }]}>
+                Bạn chưa thiết lập nhóm gia đình nào. Bạn có thể tạo nhóm gia đình mới (yêu cầu gói VIP) hoặc gia nhập nhóm gia đình của người thân bằng mã mời:
+              </Text>
+              <View style={styles.previewBtnRow}>
+                <TouchableOpacity
+                  style={[styles.previewBtn, { backgroundColor: bgColors.primary }]}
+                  onPress={() => {
+                    if (!isVip) {
+                      Alert.alert('Gói VIP yêu cầu', 'Chức năng Tạo nhóm Gia đình chỉ dành riêng cho tài khoản gói VIP. Vui lòng nâng cấp gói cước.');
+                      return;
+                    }
+                    setCreateModalVisible(true);
+                  }}
+                >
+                  <Text style={styles.previewBtnText}>Tạo nhóm mới</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.previewBtn, styles.previewBtnOutline, { borderColor: bgColors.primary }]} onPress={() => setJoinModalVisible(true)}>
+                  <Text style={[styles.previewBtnTextOutline, { color: bgColors.primary }]}>Gia nhập nhóm</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-          <IconSymbol name="chevron.right" size={20} color={bgColors.subtext} />
-        </TouchableOpacity>
 
-        {/* Members section */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: bgColors.text }]}>Thành viên gia đình</Text>
-          <TouchableOpacity 
-            onPress={() => setInviteModalVisible(true)} 
-            style={[styles.addMemberBtn, { backgroundColor: bgColors.pinkBg }]}
-          >
-            <IconSymbol name="person.badge.plus" size={18} color={bgColors.primary} />
-          </TouchableOpacity>
-        </View>
-        
-        <View style={styles.membersWrapper}>
-          {displayMembers.map((member: any, idx: number) => {
-            const isMemberAdmin = member.role === 'ADMIN';
-            const memberName = member.user_id.profile?.full_name || member.user_id.email;
-            const avatarUrl = member.user_id.profile?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150';
-            
-            return (
-              <View key={member.user_id._id} style={[styles.memberCard, { backgroundColor: bgColors.card, borderColor: bgColors.border }]}>
-                <Image source={{ uri: avatarUrl }} style={styles.memberAvatarImage} />
-                <View style={styles.memberInfo}>
-                  <Text style={[styles.memberName, { color: bgColors.text }]}>{memberName}</Text>
-                  
-                  <View style={styles.badgeRow}>
-                    <View style={[
-                      styles.roleBadge, 
-                      isMemberAdmin 
-                        ? { backgroundColor: bgColors.pinkBg, borderColor: bgColors.pinkBorder } 
-                        : { backgroundColor: '#F0F4F8', borderColor: '#E2E8F0' }
-                    ]}>
-                      <Text style={[
-                        styles.roleText, 
-                        isMemberAdmin ? { color: bgColors.primary } : { color: bgColors.subtext }
-                      ]}>
-                        {isMemberAdmin ? 'CHỦ HỘ' : 'THÀNH VIÊN'}
-                      </Text>
+            {pendingInvitations.length > 0 && (
+              <View style={{ marginTop: 24 }}>
+                <Text style={[styles.sectionTitle, { color: bgColors.text, marginBottom: 12 }]}>
+                  Lời mời gia nhập gia đình đang chờ ({pendingInvitations.length})
+                </Text>
+                {pendingInvitations.map((invite: any) => (
+                  <View
+                    key={invite._id}
+                    style={[styles.memberCard, { backgroundColor: bgColors.card, borderColor: bgColors.border, marginBottom: 12 }]}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%', gap: 12 }}>
+                      <View style={[styles.utilityIconWrap, { backgroundColor: bgColors.pinkBg, marginRight: 0 }]}>
+                        <Ionicons name="home" size={20} color={bgColors.primary} />
+                      </View>
+                      <View style={{ flex: 1, paddingLeft: 12 }}>
+                        <Text style={[styles.memberName, { color: bgColors.text }]} numberOfLines={1}>
+                          {invite.group_id?.group_name || 'Nhóm gia đình'}
+                        </Text>
+                        <Text style={{ color: bgColors.subtext, fontSize: 11 }}>
+                          Mã mời: {invite.token_hash}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[styles.previewBtn, { backgroundColor: bgColors.primary, height: 36, paddingHorizontal: 16, flex: 0, minWidth: 80 }]}
+                        onPress={async () => {
+                          try {
+                            setSubmitting(true);
+                            const res = await familyApi.joinFamily(invite.token_hash) as any;
+                            setSubmitting(false);
+                            if (res && res.success) {
+                              Alert.alert('Thành công', 'Gia nhập gia đình thành công!');
+                              fetchFamilyData();
+                            }
+                          } catch (error: any) {
+                            setSubmitting(false);
+                            Alert.alert('Lỗi', error.response?.data?.message || 'Có lỗi xảy ra khi gia nhập gia đình.');
+                          }
+                        }}
+                      >
+                        <Text style={styles.previewBtnText}>Đồng ý</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
-                </View>
-                {isMemberAdmin ? (
-                  <IconSymbol name="checkmark.seal.fill" size={20} color={bgColors.primary} />
-                ) : (
-                  <TouchableOpacity onPress={() => Alert.alert('Tùy chọn', 'Quản lý thông tin thành viên gia đình.')}>
-                    <IconSymbol name="ellipsis" size={20} color={bgColors.subtext} style={{ transform: [{ rotate: '90deg' }] }} />
-                  </TouchableOpacity>
-                )}
-              </View>
-            );
-          })}
-        </View>
-
-        {/* Shared Utilities Section */}
-        <Text style={[styles.sectionTitle, { color: bgColors.text, marginTop: 24, marginBottom: 12 }]}>Tiện ích chung</Text>
-        
-        <View style={styles.utilitiesList}>
-          {/* Common Dashboard */}
-          <TouchableOpacity 
-            style={[styles.utilityCard, { backgroundColor: bgColors.card, borderColor: bgColors.border }]}
-            onPress={() => router.push('/(tabs)')}
-          >
-            <View style={[styles.utilityIconWrap, { backgroundColor: '#FFF5EB' }]}>
-              <IconSymbol name="square.grid.2x2.fill" size={20} color="#FF9F43" />
-            </View>
-            <View style={styles.utilityTextWrap}>
-              <Text style={[styles.utilityTitle, { color: bgColors.text }]}>Bảng điều khiển chung</Text>
-              <Text style={[styles.utilitySubtitle, { color: bgColors.subtext }]}>Xem mọi hoạt động của thú cưng</Text>
-            </View>
-            <IconSymbol name="chevron.right" size={20} color={bgColors.subtext} />
-          </TouchableOpacity>
-
-          {/* Task Assignment */}
-          <TouchableOpacity 
-            style={[styles.utilityCard, { backgroundColor: bgColors.card, borderColor: bgColors.border }]}
-            onPress={() => setShowQuestsSection(!showQuestsSection)}
-          >
-            <View style={[styles.utilityIconWrap, { backgroundColor: '#EBF5FF' }]}>
-              <IconSymbol name="checklist" size={20} color="#3B82F6" />
-            </View>
-            <View style={styles.utilityTextWrap}>
-              <Text style={[styles.utilityTitle, { color: bgColors.text }]}>Phân công công việc</Text>
-              <Text style={[styles.utilitySubtitle, { color: bgColors.subtext }]}>
-                {showQuestsSection ? 'Ẩn bảng phân công công việc' : 'Chia sẻ lịch chăm sóc, cho ăn'}
-              </Text>
-            </View>
-            <IconSymbol 
-              name="chevron.right" 
-              size={20} 
-              color={bgColors.subtext} 
-              style={{ transform: [{ rotate: showQuestsSection ? '90deg' : '0deg' }] }} 
-            />
-          </TouchableOpacity>
-
-          {/* Common Health Records */}
-          <TouchableOpacity 
-            style={[styles.utilityCard, { backgroundColor: bgColors.card, borderColor: bgColors.border }]}
-            onPress={() => router.push('/health-dashboard')}
-          >
-            <View style={[styles.utilityIconWrap, { backgroundColor: '#EAFDF7' }]}>
-              <IconSymbol name="cross.case.fill" size={20} color="#2ECC71" />
-            </View>
-            <View style={styles.utilityTextWrap}>
-              <Text style={[styles.utilityTitle, { color: bgColors.text }]}>Hồ sơ sức khỏe chung</Text>
-              <Text style={[styles.utilitySubtitle, { color: bgColors.subtext }]}>Cập nhật lịch tiêm chủng & khám</Text>
-            </View>
-            <IconSymbol name="chevron.right" size={20} color={bgColors.subtext} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Quests Assignment List (Toggled by Utility) */}
-        {showQuestsSection && (
-          <View style={styles.questsSection}>
-            <Text style={[styles.sectionTitle, { color: bgColors.text, marginBottom: 12 }]}>Phân công chi tiết</Text>
-            {displayQuests.length === 0 ? (
-              <View style={[styles.questCardEmpty, { backgroundColor: bgColors.card, borderColor: bgColors.border }]}>
-                <IconSymbol name="checklist" size={32} color={bgColors.subtext} />
-                <Text style={[styles.questCardEmptyText, { color: bgColors.subtext }]}>
-                  Không tìm thấy nhiệm vụ nào cần phân công cho hôm nay.
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.questAssignList}>
-                {displayQuests.map((quest: any) => {
-                  const questIcon = getQuestIcon(quest.category);
-                  const assigneeName = quest.assigned_to ? getAssigneeName(quest.assigned_to) : 'Chưa phân công';
-                  const isAssigned = !!quest.assigned_to;
-                  const isCompleted = quest.status === 'COMPLETED';
-
-                  return (
-                    <TouchableOpacity
-                      key={quest._id}
-                      style={[styles.questAssignItem, { backgroundColor: bgColors.card, borderColor: bgColors.border }]}
-                      onPress={() => openAssignModal(quest)}
-                    >
-                      <View style={[styles.questIconWrap, { backgroundColor: questIcon.color + '15' }]}>
-                        <IconSymbol name={questIcon.name as any} size={18} color={questIcon.color} />
-                      </View>
-
-                      <View style={styles.questAssignInfo}>
-                        <View style={styles.questTitleRow}>
-                          <Text style={[styles.questAssignTitle, { color: bgColors.text }, isCompleted && styles.completedQuestText]} numberOfLines={1}>
-                            {quest.title}
-                          </Text>
-                          <Text style={styles.questPetBadge}>{quest.petName}</Text>
-                        </View>
-                        <Text style={styles.questAssignDesc} numberOfLines={1}>{quest.description}</Text>
-                        
-                        <View style={styles.assignBadgeRow}>
-                          <View style={[styles.assigneePill, isAssigned ? styles.assigneePillActive : styles.assigneePillEmpty]}>
-                            <IconSymbol name="person.fill" size={10} color={isAssigned ? bgColors.primary : bgColors.subtext} />
-                            <Text style={[styles.assigneeText, isAssigned ? styles.assigneeTextActive : styles.assigneeTextEmpty, { color: isAssigned ? bgColors.primary : bgColors.subtext }]}>
-                              {assigneeName}
-                            </Text>
-                          </View>
-                          {isCompleted && (
-                            <View style={styles.completedBadgePill}>
-                              <Text style={styles.completedBadgePillText}>Đã xong ✓</Text>
-                            </View>
-                          )}
-                        </View>
-                      </View>
-
-                      <IconSymbol name="ellipsis" size={20} color={bgColors.subtext} style={{ transform: [{ rotate: '90deg' }] }} />
-                    </TouchableOpacity>
-                  );
-                })}
+                ))}
               </View>
             )}
           </View>
+        ) : (
+          <View>
+
+            {/* Pets section */}
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: bgColors.text }]}>Thú cưng gia đình</Text>
+              {isFamilyAdmin && (
+                <TouchableOpacity
+                  onPress={openManagePetsModal}
+                  style={[styles.addMemberBtn, { backgroundColor: bgColors.pinkBg }]}
+                >
+                  <Ionicons name="settings-outline" size={18} color={bgColors.primary} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={{ gap: 12, marginBottom: 24 }}>
+              {displayPets.map((pet: any) => (
+                <TouchableOpacity
+                  key={pet._id}
+                  style={[styles.petCard, { backgroundColor: bgColors.card, borderColor: bgColors.border, marginBottom: 0 }]}
+                  onPress={() => router.push('/(tabs)/pets')}
+                  activeOpacity={0.8}
+                >
+                  <Image
+                    source={{ uri: pet.avatar_url || 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=200' }}
+                    style={styles.petAvatarImage}
+                  />
+                  <View style={styles.petInfo}>
+                    <Text style={[styles.petNameText, { color: bgColors.text }]}>{pet.name}</Text>
+                    <View style={styles.statusRow}>
+                      <IconSymbol name="person.3.fill" size={14} color={bgColors.primary} />
+                      <Text style={[styles.statusText, { color: bgColors.primary }]}>Thành viên chung</Text>
+                    </View>
+                  </View>
+                  <IconSymbol name="chevron.right" size={20} color={bgColors.subtext} />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Members section */}
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: bgColors.text }]}>Thành viên gia đình</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  if (!isVip) {
+                    Alert.alert('Gói VIP yêu cầu', 'Chức năng mời thành viên mới chỉ dành riêng cho tài khoản gói VIP. Vui lòng nâng cấp gói cước.');
+                    return;
+                  }
+                  setInviteModalVisible(true);
+                }}
+                style={[styles.addMemberBtn, { backgroundColor: bgColors.pinkBg }]}
+              >
+                <IconSymbol name="person.badge.plus" size={18} color={bgColors.primary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.membersWrapper}>
+              {displayMembers.map((member: any, idx: number) => {
+                const isMemberAdmin = member.role === 'ADMIN';
+                const memberName = member.user_id.profile?.full_name || member.user_id.email;
+                const avatarUrl = member.user_id.profile?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150';
+
+                return (
+                  <View key={member.user_id._id} style={[styles.memberCard, { backgroundColor: bgColors.card, borderColor: bgColors.border }]}>
+                    <Image source={{ uri: avatarUrl }} style={styles.memberAvatarImage} />
+                    <View style={styles.memberInfo}>
+                      <Text style={[styles.memberName, { color: bgColors.text }]}>{memberName}</Text>
+
+                      <View style={styles.badgeRow}>
+                        <View style={[
+                          styles.roleBadge,
+                          isMemberAdmin
+                            ? { backgroundColor: bgColors.pinkBg, borderColor: bgColors.pinkBorder }
+                            : { backgroundColor: '#F0F4F8', borderColor: '#E2E8F0' }
+                        ]}>
+                          <Text style={[
+                            styles.roleText,
+                            isMemberAdmin ? { color: bgColors.primary } : { color: bgColors.subtext }
+                          ]}>
+                            {isMemberAdmin ? 'CHỦ HỘ' : 'THÀNH VIÊN'}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    {isMemberAdmin ? (
+                      <IconSymbol name="checkmark.seal.fill" size={20} color={bgColors.primary} />
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => {
+                          if (isFamilyAdmin) {
+                            handleRemoveMember(member.user_id._id, memberName);
+                          } else {
+                            Alert.alert('Thành viên', 'Chỉ có Chủ hộ (ADMIN) mới có quyền quản lý thành viên.');
+                          }
+                        }}
+                      >
+                        <IconSymbol name="ellipsis" size={20} color={bgColors.subtext} style={{ transform: [{ rotate: '90deg' }] }} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+
+            {/* Shared Utilities Section */}
+            <Text style={[styles.sectionTitle, { color: bgColors.text, marginTop: 24, marginBottom: 12 }]}>Tiện ích chung</Text>
+
+            <View style={styles.utilitiesList}>
+              {/* Common Dashboard */}
+              <TouchableOpacity
+                style={[styles.utilityCard, { backgroundColor: bgColors.card, borderColor: bgColors.border }]}
+                onPress={() => router.push('/(tabs)')}
+              >
+                <View style={[styles.utilityIconWrap, { backgroundColor: '#FFF5EB' }]}>
+                  <IconSymbol name="square.grid.2x2.fill" size={20} color="#FF9F43" />
+                </View>
+                <View style={styles.utilityTextWrap}>
+                  <Text style={[styles.utilityTitle, { color: bgColors.text }]}>Bảng điều khiển chung</Text>
+                  <Text style={[styles.utilitySubtitle, { color: bgColors.subtext }]}>Xem mọi hoạt động của thú cưng</Text>
+                </View>
+                <IconSymbol name="chevron.right" size={20} color={bgColors.subtext} />
+              </TouchableOpacity>
+
+              {/* Task Assignment */}
+              <TouchableOpacity
+                style={[styles.utilityCard, { backgroundColor: bgColors.card, borderColor: bgColors.border }]}
+                onPress={() => setShowQuestsSection(!showQuestsSection)}
+              >
+                <View style={[styles.utilityIconWrap, { backgroundColor: '#EBF5FF' }]}>
+                  <IconSymbol name="checklist" size={20} color="#3B82F6" />
+                </View>
+                <View style={styles.utilityTextWrap}>
+                  <Text style={[styles.utilityTitle, { color: bgColors.text }]}>Phân công công việc</Text>
+                  <Text style={[styles.utilitySubtitle, { color: bgColors.subtext }]}>
+                    {showQuestsSection ? 'Ẩn bảng phân công công việc' : 'Chia sẻ lịch chăm sóc, cho ăn'}
+                  </Text>
+                </View>
+                <IconSymbol
+                  name="chevron.right"
+                  size={20}
+                  color={bgColors.subtext}
+                  style={{ transform: [{ rotate: showQuestsSection ? '90deg' : '0deg' }] }}
+                />
+              </TouchableOpacity>
+
+              {/* Common Health Records */}
+              <TouchableOpacity
+                style={[styles.utilityCard, { backgroundColor: bgColors.card, borderColor: bgColors.border }]}
+                onPress={() => router.push('/health-dashboard')}
+              >
+                <View style={[styles.utilityIconWrap, { backgroundColor: '#EAFDF7' }]}>
+                  <IconSymbol name="cross.case.fill" size={20} color="#2ECC71" />
+                </View>
+                <View style={styles.utilityTextWrap}>
+                  <Text style={[styles.utilityTitle, { color: bgColors.text }]}>Hồ sơ Pet</Text>
+                  <Text style={[styles.utilitySubtitle, { color: bgColors.subtext }]}>Cập nhật thông tin Pet</Text>
+                </View>
+                <IconSymbol name="chevron.right" size={20} color={bgColors.subtext} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Quests Assignment List (Toggled by Utility) */}
+            {showQuestsSection && (
+              <View style={styles.questsSection}>
+                <Text style={[styles.sectionTitle, { color: bgColors.text, marginBottom: 12 }]}>Phân công chi tiết</Text>
+                {displayQuests.length === 0 ? (
+                  <View style={[styles.questCardEmpty, { backgroundColor: bgColors.card, borderColor: bgColors.border }]}>
+                    <IconSymbol name="checklist" size={32} color={bgColors.subtext} />
+                    <Text style={[styles.questCardEmptyText, { color: bgColors.subtext }]}>
+                      Không tìm thấy nhiệm vụ nào cần phân công cho hôm nay.
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.questAssignList}>
+                    {displayQuests.map((quest: any) => {
+                      const questIcon = getQuestIcon(quest.category);
+                      const assigneeName = quest.assigned_to ? getAssigneeName(quest.assigned_to) : 'Chưa phân công';
+                      const isAssigned = !!quest.assigned_to;
+                      const isCompleted = quest.status === 'COMPLETED';
+
+                      return (
+                        <TouchableOpacity
+                          key={quest._id}
+                          style={[styles.questAssignItem, { backgroundColor: bgColors.card, borderColor: bgColors.border }]}
+                          onPress={() => openAssignModal(quest)}
+                        >
+                          <View style={[styles.questIconWrap, { backgroundColor: questIcon.color + '15' }]}>
+                            <IconSymbol name={questIcon.name as any} size={18} color={questIcon.color} />
+                          </View>
+
+                          <View style={styles.questAssignInfo}>
+                            <View style={styles.questTitleRow}>
+                              <Text style={[styles.questAssignTitle, { color: bgColors.text }, isCompleted && styles.completedQuestText]} numberOfLines={1}>
+                                {quest.title}
+                              </Text>
+                              <Text style={styles.questPetBadge}>{quest.petName}</Text>
+                            </View>
+                            <Text style={styles.questAssignDesc} numberOfLines={1}>{quest.description}</Text>
+
+                            <View style={styles.assignBadgeRow}>
+                              <View style={[styles.assigneePill, isAssigned ? styles.assigneePillActive : styles.assigneePillEmpty]}>
+                                <IconSymbol name="person.fill" size={10} color={isAssigned ? bgColors.primary : bgColors.subtext} />
+                                <Text style={[styles.assigneeText, isAssigned ? styles.assigneeTextActive : styles.assigneeTextEmpty, { color: isAssigned ? bgColors.primary : bgColors.subtext }]}>
+                                  {assigneeName}
+                                </Text>
+                              </View>
+                              {isCompleted && (
+                                <View style={styles.completedBadgePill}>
+                                  <Text style={styles.completedBadgePillText}>Đã xong ✓</Text>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+
+                          <IconSymbol name="ellipsis" size={20} color={bgColors.subtext} style={{ transform: [{ rotate: '90deg' }] }} />
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Action Button */}
+            <TouchableOpacity
+              style={[styles.inviteBtn, { backgroundColor: bgColors.primary }]}
+              onPress={() => {
+                if (!isVip) {
+                  Alert.alert('Gói VIP yêu cầu', 'Chức năng mời thành viên mới chỉ dành riêng cho tài khoản gói VIP. Vui lòng nâng cấp gói cước.');
+                  return;
+                }
+                setInviteModalVisible(true);
+              }}
+            >
+              <IconSymbol name="envelope.fill" size={18} color="#FFFFFF" />
+              <Text style={styles.inviteBtnText}>Mời thành viên mới</Text>
+            </TouchableOpacity>
+            <Text style={[styles.infoText, { color: bgColors.subtext }]}>
+              Người được mời sẽ có quyền truy cập vào hồ sơ của {displayPets.length > 0 ? displayPets.map((p: any) => p.name).join(', ') : 'thú cưng gia đình'}
+            </Text>
+          </View>
         )}
-
-        {/* Action Button */}
-        <TouchableOpacity style={[styles.inviteBtn, { backgroundColor: bgColors.primary }]} onPress={() => setInviteModalVisible(true)}>
-          <IconSymbol name="envelope.fill" size={18} color="#FFFFFF" />
-          <Text style={styles.inviteBtnText}>Mời thành viên mới</Text>
-        </TouchableOpacity>
-        <Text style={[styles.infoText, { color: bgColors.subtext }]}>
-          Người được mời sẽ có quyền truy cập vào hồ sơ của {displayPet.name}
-        </Text>
-
       </ScrollView>
 
       {/* Invite Member Modal */}
@@ -660,19 +864,92 @@ export default function FamilyManagementScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Manage Pets Modal */}
+      <Modal animationType="fade" transparent visible={managePetsModalVisible} onRequestClose={() => setManagePetsModalVisible(false)}>
+        <View style={styles.modalBg}>
+          <View style={[styles.modalContent, { backgroundColor: bgColors.card, maxHeight: '80%' }]}>
+            <Text style={[styles.modalTitle, { color: bgColors.text }]}>Quản lý Thú cưng Gia đình</Text>
+            <Text style={[styles.modalDesc, { color: bgColors.subtext, marginBottom: 16 }]}>
+              Chọn các thú cưng bạn muốn chia sẻ quyền chăm sóc với các thành viên khác trong gia đình.
+            </Text>
+
+            {loadingPets ? (
+              <ActivityIndicator size="large" color={bgColors.primary} style={{ marginVertical: 20 }} />
+            ) : userPets.length === 0 ? (
+              <View style={{ alignItems: 'center', padding: 20, width: '100%' }}>
+                <Text style={{ color: bgColors.subtext, textAlign: 'center', marginBottom: 20 }}>
+                  Bạn chưa tạo thú cưng nào để chia sẻ.
+                </Text>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.saveBtn, { backgroundColor: bgColors.primary, width: '100%' }]}
+                  onPress={() => {
+                    setManagePetsModalVisible(false);
+                    router.push('/(setup)/pet-setup-1');
+                  }}
+                >
+                  <Text style={styles.saveBtnText}>Tạo thú cưng mới</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <ScrollView style={{ width: '100%' }} showsVerticalScrollIndicator={false}>
+                {userPets.map((pet: any) => {
+                  const isSelected = selectedPetIds.includes(pet._id);
+                  const avatarUrl = pet.avatar_url || 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=200';
+                  return (
+                    <TouchableOpacity
+                      key={pet._id}
+                      style={[styles.assignOptionItem, { borderBottomColor: bgColors.border }]}
+                      onPress={() => togglePetSelection(pet._id)}
+                    >
+                      <Image source={{ uri: avatarUrl }} style={styles.assignOptionAvatar} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.assignOptionName, { color: bgColors.text }]}>{pet.name}</Text>
+                        <Text style={{ color: bgColors.subtext, fontSize: 11 }}>
+                          {pet.species === 'DOG' ? 'Chó' : pet.species === 'CAT' ? 'Mèo' : pet.species} • {pet.breed || 'Không rõ giống'}
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name={isSelected ? 'checkbox' : 'square-outline'}
+                        size={24}
+                        color={isSelected ? bgColors.primary : bgColors.subtext}
+                      />
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            {!loadingPets && userPets.length > 0 && (
+              <View style={[styles.modalBtnRow, { marginTop: 16 }]}>
+                <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setManagePetsModalVisible(false)}>
+                  <Text style={styles.cancelBtnText}>Đóng</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.saveBtn, { backgroundColor: bgColors.primary }]}
+                  onPress={handleUpdateFamilyPets}
+                  disabled={submitting}
+                >
+                  {submitting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.saveBtnText}>Lưu lại</Text>}
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    paddingHorizontal: 20, 
-    paddingVertical: 14, 
-    borderBottomWidth: 1, 
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
   },
   backBtn: { padding: 4 },
   headerTitle: { fontSize: 18, fontWeight: '700' },
@@ -741,12 +1018,12 @@ const styles = StyleSheet.create({
   },
 
   // Pet card styles
-  petCard: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    padding: 16, 
-    borderRadius: 16, 
-    borderWidth: 1, 
+  petCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
     marginBottom: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -754,11 +1031,11 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  petAvatarImage: { 
-    width: 60, 
-    height: 60, 
-    borderRadius: 12, 
-    marginRight: 16, 
+  petAvatarImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    marginRight: 16,
     resizeMode: 'cover',
   },
   petInfo: { flex: 1 },
@@ -767,11 +1044,11 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 12, fontWeight: '600' },
 
   // Members Section
-  sectionHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    marginBottom: 16 
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16
   },
   sectionTitle: { fontSize: 16, fontWeight: '700' },
   addMemberBtn: {
@@ -887,14 +1164,14 @@ const styles = StyleSheet.create({
   completedBadgePillText: { color: '#2ECC71', fontSize: 9, fontWeight: 'bold' },
 
   // Bottom action
-  inviteBtn: { 
-    flexDirection: 'row', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    gap: 8, 
-    height: 54, 
-    borderRadius: 27, 
-    marginBottom: 10, 
+  inviteBtn: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    height: 54,
+    borderRadius: 27,
+    marginBottom: 10,
     marginTop: 28,
     shadowColor: '#EC4B4B',
     shadowOffset: { width: 0, height: 4 },

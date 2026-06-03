@@ -122,6 +122,7 @@ export default function PetSetup2Screen() {
                 <Text style={styles.sectionTitle}>Tình trạng sức khỏe</Text>
             </View>
             <View style={styles.card}>
+                {/* 1. Khỏe mạnh */}
                 <TouchableOpacity 
                     style={[styles.healthItem, healthStatus === 'NORMAL' && styles.healthItemActive]} 
                     onPress={() => setHealthStatus('NORMAL')}
@@ -135,19 +136,53 @@ export default function PetSetup2Screen() {
                     </View>
                 </TouchableOpacity>
                 <View style={styles.healthDivider} />
+
+                {/* 2. Thừa cân */}
+                <TouchableOpacity 
+                    style={[styles.healthItem, healthStatus === 'OVERWEIGHT' && styles.healthItemActive]} 
+                    onPress={() => setHealthStatus('OVERWEIGHT')}
+                >
+                    <View style={[styles.iconCircleWrap, { backgroundColor: '#FFF0F0' }]}>
+                        <Ionicons name="trending-up" size={20} color="#EC4B4B" />
+                    </View>
+                    <View style={styles.healthInfo}>
+                        <Text style={[styles.healthTitle, healthStatus === 'OVERWEIGHT' && styles.activeHealthTitle]}>Thừa cân (Overweight)</Text>
+                        <Text style={styles.healthDesc}>Cần kiểm soát calo và tăng cường vận động.</Text>
+                    </View>
+                </TouchableOpacity>
+                <View style={styles.healthDivider} />
+
+                {/* 3. Thiếu cân */}
+                <TouchableOpacity 
+                    style={[styles.healthItem, healthStatus === 'UNDERWEIGHT' && styles.healthItemActive]} 
+                    onPress={() => setHealthStatus('UNDERWEIGHT')}
+                >
+                    <View style={[styles.iconCircleWrap, { backgroundColor: '#FFF6E9' }]}>
+                        <Ionicons name="trending-down" size={20} color="#FFA500" />
+                    </View>
+                    <View style={styles.healthInfo}>
+                        <Text style={[styles.healthTitle, healthStatus === 'UNDERWEIGHT' && styles.activeHealthTitleOrange]}>Thiếu cân (Underweight)</Text>
+                        <Text style={styles.healthDesc}>Cần bổ sung các cữ ăn phụ và men tiêu hóa.</Text>
+                    </View>
+                </TouchableOpacity>
+                <View style={styles.healthDivider} />
+
+                {/* 4. Yêu cầu chăm sóc */}
                 <TouchableOpacity 
                     style={[styles.healthItem, healthStatus === 'SICK' && styles.healthItemActive]} 
                     onPress={() => setHealthStatus('SICK')}
                 >
                     <View style={[styles.iconCircleWrap, { backgroundColor: '#FFF6E9' }]}>
-                        <Ionicons name="call" size={20} color="#FFA500" />
+                        <Ionicons name="alert-circle" size={20} color="#FFA500" />
                     </View>
                     <View style={styles.healthInfo}>
-                        <Text style={[styles.healthTitle, healthStatus === 'SICK' && styles.activeHealthTitleOrange]}>Yêu cầu chăm sóc</Text>
+                        <Text style={[styles.healthTitle, healthStatus === 'SICK' && styles.activeHealthTitleOrange]}>Yêu cầu chăm sóc (Ốm)</Text>
                         <Text style={styles.healthDesc}>Các vấn đề nhỏ hoặc cần kiểm tra sức khỏe.</Text>
                     </View>
                 </TouchableOpacity>
                 <View style={styles.healthDivider} />
+
+                {/* 5. Điều trị y tế */}
                 <TouchableOpacity 
                     style={[styles.healthItem, healthStatus === 'POST_SURGERY' && styles.healthItemActive]} 
                     onPress={() => setHealthStatus('POST_SURGERY')}
@@ -156,7 +191,7 @@ export default function PetSetup2Screen() {
                         <Ionicons name="medical-sharp" size={20} color="#EC4B4B" />
                     </View>
                     <View style={styles.healthInfo}>
-                        <Text style={[styles.healthTitle, healthStatus === 'POST_SURGERY' && styles.activeHealthTitle]}>Điều trị y tế</Text>
+                        <Text style={[styles.healthTitle, healthStatus === 'POST_SURGERY' && styles.activeHealthTitle]}>Điều trị y tế (Sau phẫu thuật)</Text>
                         <Text style={styles.healthDesc}>Hỗ trợ y tế liên tục.</Text>
                     </View>
                 </TouchableOpacity>

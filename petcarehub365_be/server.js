@@ -60,8 +60,8 @@ if (env === 'development') {
     app.use(morgan('dev'));
 }
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(apiLogger);
 
 app.get('/', (req, res) => res.send('PetcareHub365 API Running 🐾'));

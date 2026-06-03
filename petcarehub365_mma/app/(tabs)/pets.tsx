@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, ActivityIndicator, Platform } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
@@ -12,6 +13,7 @@ import { useAuth } from '../../contexts/AuthContext';
 export default function PetsScreen() {
   const { user: authUser } = useAuth();
   const [pet, setPet] = useState<any | null>(null);
+  const [pets, setPets] = useState<any[]>([]);
   const [user, setUser] = useState<any | null>(authUser);
   const [loading, setLoading] = useState(true);
   const [achievements, setAchievements] = useState<any[]>([]);
@@ -27,25 +29,35 @@ export default function PetsScreen() {
         setUser(uRes.data.user);
       }
 
+      // Load all pets list
+      const petsListRes = await petApi.getPets() as any;
+      let petList = [];
+      if (petsListRes && petsListRes.success) {
+        petList = petsListRes.data.pets || [];
+        setPets(petList);
+      }
+
       // Load pet hiện đang chọn
       const selectedPetId = await getStorageItem('selectedPetId');
       let currentPetId = selectedPetId;
       if (selectedPetId) {
-        const pRes = await petApi.getPetById(selectedPetId) as any;
-        if (pRes && pRes.success) {
-          setPet(pRes.data.pet);
-        }
-      } else {
-        // Tìm pet đầu tiên nếu chưa có selectedPetId lưu trữ
-        const petsListRes = await petApi.getPets() as any;
-        if (petsListRes && petsListRes.success && petsListRes.data.pets?.length > 0) {
-          const firstPet = petsListRes.data.pets[0];
-          setPet(firstPet);
-          currentPetId = firstPet._id;
-          await require('../../utils/storage').setStorageItem('selectedPetId', firstPet._id);
+        const foundPet = petList.find((p: any) => p._id === selectedPetId);
+        if (foundPet) {
+          setPet(foundPet);
+        } else if (petList.length > 0) {
+          setPet(petList[0]);
+          currentPetId = petList[0]._id;
+          await require('../../utils/storage').setStorageItem('selectedPetId', petList[0]._id);
         } else {
           setPet(null);
         }
+      } else if (petList.length > 0) {
+        const firstPet = petList[0];
+        setPet(firstPet);
+        currentPetId = firstPet._id;
+        await require('../../utils/storage').setStorageItem('selectedPetId', firstPet._id);
+      } else {
+        setPet(null);
       }
 
       // Load achievements
@@ -94,6 +106,24 @@ export default function PetsScreen() {
       }
     } catch (error) {
       console.error('Error loading pet detail screen:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectPet = async (selected: any) => {
+    setPet(selected);
+    await require('../../utils/storage').setStorageItem('selectedPetId', selected._id);
+    try {
+      setLoading(true);
+      if (selected._id && !selected._id.startsWith('mock_')) {
+        const aRes = await achievementApi.getAchievements(selected._id) as any;
+        if (aRes && aRes.success) {
+          setAchievements(aRes.data.achievements || []);
+        }
+      }
+    } catch (error) {
+      console.error('Error switching pet:', error);
     } finally {
       setLoading(false);
     }
@@ -162,19 +192,66 @@ export default function PetsScreen() {
         </ScrollView>
       ) : (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Pet Switcher Horizontal List */}
+          {pets.length > 0 && (
+            <View style={styles.petSelectorContainer}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.petSelectorScroll}>
+                {pets.map((p) => {
+                  const isSelected = pet && pet._id === p._id;
+                  return (
+                    <TouchableOpacity
+                      key={p._id}
+                      style={styles.petSelectorItem}
+                      onPress={() => handleSelectPet(p)}
+                    >
+                      <View style={[styles.petSelectorAvatarRing, isSelected && styles.petSelectorAvatarRingActive]}>
+                        {p.avatar_url ? (
+                          <Image source={{ uri: p.avatar_url }} style={styles.petSelectorAvatar} />
+                        ) : (
+                          <Ionicons name="paw" size={20} color={isSelected ? '#EC4B4B' : '#8A9AA9'} />
+                        )}
+                      </View>
+                      <Text style={[styles.petSelectorName, isSelected && styles.petSelectorNameActive]} numberOfLines={1}>
+                        {p.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+                <TouchableOpacity
+                  style={styles.petSelectorItem}
+                  onPress={() => router.push('/(setup)/pet-setup-1')}
+                >
+                  <View style={styles.petSelectorAddRing}>
+                    <Ionicons name="add" size={20} color="#8A9AA9" />
+                  </View>
+                  <Text style={styles.petSelectorNameAdd}>Thêm mới</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          )}
+
           {/* Pet Avatar and Title */}
           <View style={styles.petHeroSection}>
-            <View style={styles.avatarOutlineRing}>
-              <View style={styles.avatarImageContainer}>
-                {displayPet?.avatar_url ? (
-                  <Image source={{ uri: displayPet.avatar_url }} style={styles.petImage} />
-                ) : (
-                  <View style={styles.pawPlaceholder}>
-                    <Ionicons name="paw" size={60} color="#FCD7D7" />
-                  </View>
-                )}
+            <TouchableOpacity 
+              onPress={() => pet?._id && router.push(`/pet/${pet._id}`)}
+              activeOpacity={0.85}
+              style={styles.avatarWrapper}
+            >
+              <View style={styles.avatarOutlineRing}>
+                <View style={styles.avatarImageContainer}>
+                  {displayPet?.avatar_url ? (
+                    <Image source={{ uri: displayPet.avatar_url }} style={styles.petImage} />
+                  ) : (
+                    <View style={styles.pawPlaceholder}>
+                      <Ionicons name="paw" size={60} color="#FCD7D7" />
+                    </View>
+                  )}
+                </View>
               </View>
-            </View>
+              <View style={styles.avatarEditBadge}>
+                <Ionicons name="create" size={14} color="#fff" />
+              </View>
+            </TouchableOpacity>
             <Text style={styles.petName}>{displayPet?.name}</Text>
             <Text style={styles.xpText}>{remainingXp} XP cho cấp độ tiếp theo</Text>
           </View>
@@ -205,8 +282,8 @@ export default function PetsScreen() {
           {/* Achievements Section */}
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Thành tựu</Text>
-            <TouchableOpacity onPress={() => Alert.alert('Thành tựu', 'Xem toàn bộ danh sách thành tựu')}>
-              <Text style={styles.viewAllText}>View All</Text>
+            <TouchableOpacity onPress={() => router.push({ pathname: '/achievements-list', params: { petId: pet?._id || '' } })}>
+              <Text style={styles.viewAllText}>View All →</Text>
             </TouchableOpacity>
           </View>
 
@@ -265,8 +342,10 @@ const styles = StyleSheet.create({
   setupBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
 
   petHeroSection: { alignItems: 'center', marginVertical: 16 },
+  avatarWrapper: { position: 'relative' },
   avatarOutlineRing: { width: 154, height: 154, borderRadius: 77, borderWidth: 1, borderColor: '#FFEBEB', justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.02, shadowRadius: 8 },
   avatarImageContainer: { width: 140, height: 140, borderRadius: 70, overflow: 'hidden', justifyContent: 'center', alignItems: 'center' },
+  avatarEditBadge: { position: 'absolute', bottom: 4, right: 4, width: 26, height: 26, borderRadius: 13, backgroundColor: '#EC4B4B', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#fff' },
   petImage: { width: '140%', height: '140%', resizeMode: 'cover' },
   pawPlaceholder: { width: 140, height: 140, borderRadius: 70, backgroundColor: '#FFF5F5', justifyContent: 'center', alignItems: 'center' },
   petName: { fontSize: 24, fontWeight: 'bold', color: '#1B2530', marginTop: 12, marginBottom: 4 },
@@ -298,4 +377,67 @@ const styles = StyleSheet.create({
   missionBtn: { flexDirection: 'row', backgroundColor: '#EC4B4B', borderRadius: 28, paddingVertical: 16, justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 24, shadowColor: '#EC4B4B', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 3 },
   missionBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   rocketIcon: { marginLeft: 2 },
+  
+  petSelectorContainer: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFEBEB',
+    marginBottom: 16,
+  },
+  petSelectorScroll: {
+    paddingHorizontal: 4,
+    gap: 16,
+    flexDirection: 'row',
+  },
+  petSelectorItem: {
+    alignItems: 'center',
+    width: 65,
+  },
+  petSelectorAvatarRing: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2,
+    borderColor: '#E0E5EC',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFF5F5',
+  },
+  petSelectorAvatarRingActive: {
+    borderColor: '#EC4B4B',
+  },
+  petSelectorAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  petSelectorAddRing: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2,
+    borderColor: '#8A9AA9',
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  petSelectorName: {
+    fontSize: 11,
+    color: '#1B2530',
+    marginTop: 4,
+    fontWeight: '500',
+    textAlign: 'center',
+    width: '100%',
+  },
+  petSelectorNameActive: {
+    color: '#EC4B4B',
+    fontWeight: 'bold',
+  },
+  petSelectorNameAdd: {
+    fontSize: 11,
+    color: '#8A9AA9',
+    marginTop: 4,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
 });

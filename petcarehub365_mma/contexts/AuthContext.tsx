@@ -80,10 +80,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 return { success: true, requiresOtp: true };
             }
         } catch (error: any) {
-            console.error("Login Error:", error);
+            const status = error.response?.status;
+            const msg = error.response?.data?.error?.message || error.response?.data?.message || error.message;
+            console.error(`Login Error [${status}]:`, msg);
             return {
                 success: false,
-                message: error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Đăng nhập thất bại'
+                message: msg || 'Đăng nhập thất bại'
             };
         }
     };

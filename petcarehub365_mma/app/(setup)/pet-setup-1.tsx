@@ -7,12 +7,29 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 
 export default function PetSetup1Screen() {
   const [name, setName] = useState('');
-  const [petType, setPetType] = useState('Chó');
-  const [breed, setBreed] = useState('');
+  const [petType, setPetType] = useState('Chó'); // Chó | Mèo | Khác
+  const [selectedBreed, setSelectedBreed] = useState('Poodle');
+  const [customBreed, setCustomBreed] = useState('');
   const [weight, setWeight] = useState('');
   const [gender, setGender] = useState('MALE');
   const [dob, setDob] = useState('1.1.2026');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
+
+  const dogBreeds = ['Poodle', 'Golden Retriever', 'Corgi', 'Husky', 'Chihuahua', 'Khác'];
+  const catBreeds = ['British Shorthair', 'British Longhair', 'Persian', 'Scottish Fold', 'Sphynx', 'Khác'];
+
+  // Cập nhật giống mặc định khi đổi loài
+  const handlePetTypeChange = (type: string) => {
+    setPetType(type);
+    if (type === 'Chó') {
+      setSelectedBreed('Poodle');
+    } else if (type === 'Mèo') {
+      setSelectedBreed('British Shorthair');
+    } else {
+      setSelectedBreed('Khác');
+    }
+    setCustomBreed('');
+  };
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -37,16 +54,25 @@ export default function PetSetup1Screen() {
       Alert.alert('Thông báo', 'Vui lòng nhập tên thú cưng');
       return;
     }
-    if (!breed.trim()) {
-      Alert.alert('Thông báo', 'Vui lòng nhập giống loài thú cưng (ví dụ: Nhiều lông,...)');
+
+    let finalBreed = '';
+    if (petType === 'Khác') {
+      finalBreed = customBreed.trim();
+    } else {
+      finalBreed = selectedBreed === 'Khác' ? customBreed.trim() : selectedBreed;
+    }
+
+    if (!finalBreed) {
+      Alert.alert('Thông báo', 'Vui lòng chọn hoặc nhập giống thú cưng');
       return;
     }
+
     router.push({
       pathname: '/(setup)/pet-setup-2',
       params: {
         name: name.trim(),
         species: petType === 'Chó' ? 'DOG' : petType === 'Mèo' ? 'CAT' : 'OTHER',
-        breed: breed.trim(),
+        breed: finalBreed,
         weight: weight ? weight : '0',
         gender,
         dob,
@@ -108,7 +134,7 @@ export default function PetSetup1Screen() {
                     <View key={item.type} style={styles.typeCol}>
                       <TouchableOpacity 
                           style={[styles.typeBtnCircle, petType === item.type && styles.activeTypeBtnCircle]}
-                          onPress={() => setPetType(item.type)}
+                          onPress={() => handlePetTypeChange(item.type)}
                       >
                           <Ionicons 
                             name="paw" 
@@ -125,14 +151,55 @@ export default function PetSetup1Screen() {
         </View>
 
         <View style={styles.formGroup}>
-            <Text style={styles.label}>Đặc điểm đặc biệt</Text>
-            <TextInput 
-                style={styles.input} 
-                placeholder="Ex: Nhiều lông,....." 
-                placeholderTextColor="#A5B2C0"
-                value={breed}
-                onChangeText={setBreed}
-            />
+            <Text style={styles.label}>Giống thú cưng</Text>
+            {petType !== 'Khác' ? (
+                <View>
+                    <ScrollView 
+                        horizontal 
+                        showsHorizontalScrollIndicator={false} 
+                        contentContainerStyle={styles.breedScroll}
+                    >
+                        {(petType === 'Chó' ? dogBreeds : catBreeds).map((b) => (
+                            <TouchableOpacity
+                                key={b}
+                                style={[
+                                    styles.breedChip,
+                                    selectedBreed === b && styles.activeBreedChip
+                                ]}
+                                onPress={() => {
+                                    setSelectedBreed(b);
+                                    if (b !== 'Khác') setCustomBreed('');
+                                }}
+                            >
+                                <Text style={[
+                                    styles.breedChipText,
+                                    selectedBreed === b && styles.activeBreedChipText
+                                ]}>
+                                    {b}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                    
+                    {selectedBreed === 'Khác' && (
+                        <TextInput 
+                            style={[styles.input, { marginTop: 12 }]} 
+                            placeholder="Nhập giống thú cưng của bạn..." 
+                            placeholderTextColor="#A5B2C0"
+                            value={customBreed}
+                            onChangeText={setCustomBreed}
+                        />
+                    )}
+                </View>
+            ) : (
+                <TextInput 
+                    style={styles.input} 
+                    placeholder="Ex: Vẹt đuôi dài, Chuột Hamster..." 
+                    placeholderTextColor="#A5B2C0"
+                    value={customBreed}
+                    onChangeText={setCustomBreed}
+                />
+            )}
         </View>
 
         <View style={styles.rowForm}>
@@ -220,4 +287,9 @@ const styles = StyleSheet.create({
   activeGenderText: { fontSize: 14, color: '#fff', fontWeight: 'bold' },
   button: { backgroundColor: '#EC4B4B', borderRadius: 28, paddingVertical: 16, alignItems: 'center', marginTop: 12, shadowColor: '#EC4B4B', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 3 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  breedScroll: { paddingVertical: 4 },
+  breedChip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: '#FFEBEB', marginRight: 8, height: 40, justifyContent: 'center' },
+  activeBreedChip: { backgroundColor: '#EC4B4B', borderColor: '#EC4B4B' },
+  breedChipText: { fontSize: 13, color: '#8A9AA9', fontWeight: '600' },
+  activeBreedChipText: { color: '#fff', fontWeight: 'bold' },
 });

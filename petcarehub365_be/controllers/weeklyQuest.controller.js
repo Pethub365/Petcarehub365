@@ -95,9 +95,15 @@ exports.completeWeeklyQuest = catchAsync(async (req, res) => {
     quest.completed_at = new Date();
     await quest.save();
 
+    console.log(`[Quest Complete] Weekly/Monthly/Annual Quest ${quest._id} marked COMPLETED. Title: "${quest.title}"`);
+    console.log(`[Quest Complete] Reward XP: ${quest.reward_xp}, Reward Coin: ${quest.reward_coin}`);
+
     // Cộng XP cho thú cưng
     const originalLevel = pet.stats.level;
-    pet.stats.xp += quest.reward_xp;
+    const addedXp = Number(quest.reward_xp || 0);
+    console.log(`[Pet Stats Before] Pet name: "${pet.name}", level: ${pet.stats.level}, xp: ${pet.stats.xp}, mood: ${pet.stats.mood}`);
+    
+    pet.stats.xp = Number(pet.stats.xp || 0) + addedXp;
     
     // Tăng cấp
     let xpNeeded = pet.stats.level * 100 + 800;
@@ -110,21 +116,43 @@ exports.completeWeeklyQuest = catchAsync(async (req, res) => {
         xpNeeded = pet.stats.level * 100 + 800;
     }
     
-    pet.stats.mood = Math.min(100, pet.stats.mood + 15); // Tăng nhiều mood hơn
+    pet.stats.mood = Math.min(100, Number(pet.stats.mood || 0) + 15); // Tăng nhiều mood hơn
     pet.markModified('stats');
+    console.log(`[Pet Stats After Quest XP] level: ${pet.stats.level}, xp: ${pet.stats.xp}, mood: ${pet.stats.mood}`);
 
     // Cộng Coins cho User
-    const coinsReward = quest.reward_coin !== undefined ? quest.reward_coin : 30;
+    const coinsReward = quest.reward_coin !== undefined ? Number(quest.reward_coin) : 30;
     const user = await User.findById(req.user._id);
     if (user) {
-        user.coins = (user.coins || 0) + coinsReward;
+        user.coins = Number(user.coins || 0) + coinsReward;
+        console.log(`[User Coins] User ${user.email} found. Coins before: ${user.coins - coinsReward}, added: ${coinsReward}, coins after: ${user.coins}`);
         
         // Cập nhật tiến trình thành tựu
         const { updateAchievementProgress } = require('../utils/achievementHelper');
-        const unlockedAchievements = await updateAchievementProgress(user, pet, quest);
+        let unlockedAchievements = [];
+        try {
+            unlockedAchievements = await updateAchievementProgress(user, pet, quest);
+            console.log(`[Achievements] Unlocked achievements:`, unlockedAchievements);
+            console.log(`[Pet Stats After Achievements] level: ${pet.stats.level}, xp: ${pet.stats.xp}, mood: ${pet.stats.mood}`);
+        } catch (achErr) {
+            console.error('[Achievements Error] Error in achievement helper:', achErr);
+        }
         
-        await user.save();
-        await pet.save();
+        try {
+            await user.save();
+            console.log(`[Database Save] User document saved successfully.`);
+        } catch (userSaveErr) {
+            console.error('[Database Save Error] Failed to save User:', userSaveErr);
+            throw userSaveErr;
+        }
+
+        try {
+            await pet.save();
+            console.log(`[Database Save] Pet document saved successfully. Final stats in DB:`, pet.stats);
+        } catch (petSaveErr) {
+            console.error('[Database Save Error] Failed to save Pet:', petSaveErr);
+            throw petSaveErr;
+        }
 
         res.json({
             success: true,
@@ -133,7 +161,7 @@ exports.completeWeeklyQuest = catchAsync(async (req, res) => {
                 quest,
                 unlockedAchievements,
                 rewards: {
-                    xp: quest.reward_xp,
+                    xp: addedXp,
                     coins: coinsReward,
                     leveledUp: pet.stats.level > originalLevel,
                     currentLevel: pet.stats.level,
@@ -142,5 +170,8 @@ exports.completeWeeklyQuest = catchAsync(async (req, res) => {
                 }
             }
         });
+    } else {
+        console.error(`[Error] User with ID ${req.user._id} not found when completing quest.`);
+        throw new ApiError(httpStatus.NOT_FOUND, 'User không tồn tại');
     }
 });
