@@ -141,8 +141,15 @@ export default function ShopScreen() {
     );
   };
 
+  // Thứ tự tier: FREE < PREMIUM < VIP
+  const PLAN_TIER: Record<PlanType, number> = { FREE: 0, PREMIUM: 1, VIP: 2 };
+  const currentTier = PLAN_TIER[subscription?.plan_type ?? 'FREE'];
+
   // Nút action của mỗi gói
   const renderPlanButton = (plan: Plan) => {
+    const planTier = PLAN_TIER[plan.plan_type];
+
+    // Gói đang dùng hiện tại
     if (plan.is_current) {
       return (
         <View style={[styles.actionBtn, { backgroundColor: bgColors.successBg, borderWidth: 1, borderColor: bgColors.successBorder }]}>
@@ -152,7 +159,8 @@ export default function ShopScreen() {
       );
     }
 
-    if (!plan.can_upgrade && plan.plan_type === 'FREE') {
+    // Gói FREE: không bao giờ cần nút nâng cấp (là gói cơ sở)
+    if (plan.plan_type === 'FREE') {
       return (
         <View style={[styles.actionBtn, { backgroundColor: bgColors.border }]}>
           <Text style={[styles.actionBtnText, { color: bgColors.subtext }]}>Gói cơ bản (đã bao gồm)</Text>
@@ -160,6 +168,17 @@ export default function ShopScreen() {
       );
     }
 
+    // Gói thấp hơn tier hiện tại → đã sở hữu quyền lợi này
+    if (planTier < currentTier) {
+      return (
+        <View style={[styles.actionBtn, { backgroundColor: bgColors.successBg, borderWidth: 1, borderColor: bgColors.successBorder }]}>
+          <Ionicons name="checkmark-circle" size={16} color="#27AE60" style={{ marginRight: 6 }} />
+          <Text style={[styles.actionBtnText, { color: '#27AE60' }]}>Đã sở hữu</Text>
+        </View>
+      );
+    }
+
+    // Gói cao hơn → hiện nút nâng cấp
     const btnColor = plan.plan_type === 'VIP' ? bgColors.navyBtn : bgColors.primary;
     const priceDisplay = selectedDuration === 'YEARLY'
       ? `${formatPrice(Math.round(plan.price_yearly / 12))}/tháng`

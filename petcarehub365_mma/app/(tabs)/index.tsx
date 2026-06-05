@@ -311,19 +311,6 @@ export default function HomeScreen() {
                 </ScrollView>
               </View>
 
-              {/* Plant Status Container */}
-              {selectedPet && (
-                <View style={styles.activePetStatusBanner}>
-                  <View style={styles.statusSproutCircle}>
-                    <FontAwesome5 name="seedling" size={18} color="#fff" />
-                  </View>
-                  <View style={styles.statusBannerTextContainer}>
-                    <Text style={styles.statusBannerTextBold}>{selectedPet.name} đang làm rất tốt!</Text>
-                    <Text style={styles.statusBannerTextNormal}>Đã hoàn thành các thói quen buổi sáng. Bữa ăn tiếp theo sau 2 giờ nữa.</Text>
-                  </View>
-                </View>
-              )}
-
               {/* Tasks List Section */}
               {selectedPet && (
                 <View style={styles.tasksSection}>
@@ -468,7 +455,13 @@ export default function HomeScreen() {
                     <Text style={styles.petCardSingleLabel}>Pet Name</Text>
                     <Text style={styles.petCardSingleName}>{selectedPet?.name || 'Rudy'}</Text>
                     <View style={styles.petCardSingleMoodRow}>
-                      <Text style={styles.petCardSingleMoodText}>😊 Mood: Happy</Text>
+                      <Text style={styles.petCardSingleMoodText}>
+                        {selectedPet?.stats?.mood != null
+                          ? selectedPet.stats.mood >= 80 ? '😊 Mood: Happy'
+                          : selectedPet.stats.mood >= 50 ? '😐 Mood: Normal'
+                          : '😔 Mood: Sad'
+                          : '😊 Mood: Happy'}
+                      </Text>
                     </View>
                   </View>
                   <TouchableOpacity
@@ -491,11 +484,13 @@ export default function HomeScreen() {
                     </Text>
                     <View style={styles.badgeRow}>
                       <View style={styles.profileLevelCapsule}>
-                        <Text style={styles.profileLevelText}>LEVEL {selectedPet?.stats?.level || 12}</Text>
+                        <Text style={styles.profileLevelText}>LEVEL {selectedPet?.stats?.level ?? 1}</Text>
                       </View>
-                      <View style={styles.profileStreakCapsule}>
-                        <Text style={styles.profileStreakText}>🔥 7-day streak</Text>
-                      </View>
+                      {currentUser?.daily_streak > 0 && (
+                        <View style={styles.profileStreakCapsule}>
+                          <Text style={styles.profileStreakText}>🔥 {currentUser.daily_streak}-day streak</Text>
+                        </View>
+                      )}
                     </View>
                   </View>
                   {currentUser?.profile?.avatar_url ? (
@@ -519,7 +514,7 @@ export default function HomeScreen() {
                       <Text style={styles.levelProgressTitle}>Tiến trình hiện tại</Text>
                     </View>
                     <Text style={styles.levelProgressDiff}>
-                      {selectedPet?.stats?.xp || 1300}/{((selectedPet?.stats?.level || 12) * 100 + 800) || 2000} XP
+                      {selectedPet?.stats?.xp ?? 0}/{((selectedPet?.stats?.level ?? 1) * 100 + 800)} XP
                     </Text>
                   </View>
 
@@ -528,13 +523,13 @@ export default function HomeScreen() {
                     <View style={[
                       styles.levelProgressFill,
                       {
-                        width: `${Math.min(100, Math.round(((selectedPet?.stats?.xp || 1300) / ((selectedPet?.stats?.level || 12) * 100 + 800)) * 100))}%`
+                        width: `${Math.min(100, Math.round(((selectedPet?.stats?.xp ?? 0) / ((selectedPet?.stats?.level ?? 1) * 100 + 800)) * 100))}%`
                       }
                     ]} />
                   </View>
 
                   <Text style={styles.levelProgressSub}>
-                    {Math.min(100, Math.round(((selectedPet?.stats?.xp || 1300) / ((selectedPet?.stats?.level || 12) * 100 + 800)) * 100))}% to Level {(selectedPet?.stats?.level || 12) + 1}! Giữ vững phong độ !
+                    {Math.min(100, Math.round(((selectedPet?.stats?.xp ?? 0) / ((selectedPet?.stats?.level ?? 1) * 100 + 800)) * 100))}% to Level {(selectedPet?.stats?.level ?? 1) + 1}! Giữ vững phong độ !
                   </Text>
                 </View>
 
@@ -548,7 +543,9 @@ export default function HomeScreen() {
                       <Ionicons name="checkbox" size={20} color="#2D9CDB" />
                     </View>
                     <Text style={styles.quickActionTitle}>Nhiệm vụ</Text>
-                    <Text style={styles.quickActionVal}>4/5 Done</Text>
+                    <Text style={styles.quickActionVal}>
+                      {quests.filter((q: any) => q.status === 'COMPLETED').length}/{quests.length} Done
+                    </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -559,7 +556,14 @@ export default function HomeScreen() {
                       <Ionicons name="add-circle" size={20} color="#27AE60" />
                     </View>
                     <Text style={styles.quickActionTitle}>Sức khỏe</Text>
-                    <Text style={styles.quickActionVal}>Excellent</Text>
+                    <Text style={styles.quickActionVal}>
+                      {selectedPet?.health_status === 'NORMAL' ? 'Excellent'
+                        : selectedPet?.health_status === 'OVERWEIGHT' ? 'Overweight'
+                        : selectedPet?.health_status === 'UNDERWEIGHT' ? 'Underweight'
+                        : selectedPet?.health_status === 'SICK' ? 'Sick'
+                        : selectedPet?.health_status === 'POST_SURGERY' ? 'Post-surgery'
+                        : 'N/A'}
+                    </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -570,7 +574,11 @@ export default function HomeScreen() {
                       <Ionicons name="shield-checkmark" size={20} color="#C462FF" />
                     </View>
                     <Text style={styles.quickActionTitle}>Vaccine</Text>
-                    <Text style={styles.quickActionVal}>Up to date</Text>
+                    <Text style={styles.quickActionVal}>
+                      {selectedPet?.health_status === 'SICK' || selectedPet?.health_status === 'POST_SURGERY'
+                        ? 'Check soon'
+                        : 'Up to date'}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>
