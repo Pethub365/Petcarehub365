@@ -8,6 +8,21 @@ const errorHandler = (err, req, res, next) => {
         statusCode = 400;
         message = Object.values(err.errors).map(e => e.message).join(', ');
     }
+    // Convert Multer errors
+    if (err.name === 'MulterError') {
+        statusCode = 400;
+        err.isOperational = true;
+        if (err.code === 'LIMIT_FILE_SIZE') {
+            message = 'Kích thước ảnh quá lớn. Tối đa cho phép là 5MB.';
+        } else {
+            message = err.message;
+        }
+    }
+    if (err.message && err.message.includes('image formats are accepted')) {
+        statusCode = 400;
+        err.isOperational = true;
+        message = err.message;
+    }
     if (err.code === 11000) {
         statusCode = 409;
         const field = Object.keys(err.keyValue || {}).join(', ');
