@@ -788,10 +788,11 @@ export default function MissionDetailScreen() {
     // Determine the list items based on active tab
     let displayedQuests = questsList;
 
-    const currentLevel = selectedPet?.stats?.level || 12;
-    const currentXp = selectedPet?.stats?.xp || 1200;
+    const currentLevel = selectedPet?.stats?.level ?? 1;
+    const currentXp = selectedPet?.stats?.xp ?? 0;
     const targetXp = selectedPet?._id?.startsWith('mock_') ? 1800 : (currentLevel * 100 + 800);
     const xpPercent = Math.min(100, Math.max(0, (currentXp / targetXp) * 100));
+    const remainingQuestsCount = displayedQuests.filter(q => q.status !== 'COMPLETED').length;
 
     return (
       <View style={{ flex: 1 }}>
@@ -811,11 +812,11 @@ export default function MissionDetailScreen() {
           <View style={styles.progressCard}>
             <View style={styles.progressCardHeader}>
               <View>
-                <Text style={styles.progressLabel}>Tiến độ hiện tại</Text>
+                <Text style={styles.progressLabel}>{selectedPet?.name ? `Tiến độ của ${selectedPet.name} (Cấp ${currentLevel})` : "Tiến độ hiện tại"}</Text>
                 <Text style={styles.progressSubLabel}>XP to Level {currentLevel + 1}</Text>
               </View>
               <View style={styles.leftBadge}>
-                <Text style={styles.leftBadgeText}>12 Left</Text>
+                <Text style={styles.leftBadgeText}>{remainingQuestsCount} Left</Text>
               </View>
             </View>
 

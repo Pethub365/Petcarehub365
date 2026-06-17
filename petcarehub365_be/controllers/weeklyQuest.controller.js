@@ -18,6 +18,10 @@ exports.getWeeklyQuests = catchAsync(async (req, res) => {
     if (!pet) {
         throw new ApiError(httpStatus.NOT_FOUND, 'Thú cưng không tồn tại');
     }
+
+    const { decayPetStats } = require('../utils/petStatsHelper');
+    // Calculate stats decay in-memory only, do not save to DB on GET API
+    decayPetStats(pet);
     const isOwner = pet.owner_id.toString() === req.user._id.toString();
     const familyGroup = await FamilyGroup.findOne({
         pet_ids: pet._id,
@@ -27,7 +31,8 @@ exports.getWeeklyQuests = catchAsync(async (req, res) => {
         throw new ApiError(httpStatus.FORBIDDEN, 'Bạn không có quyền truy cập thông tin thú cưng này');
     }
 
-    const quests = await ensureWeeklyQuestsForPet(pet, activePeriod, date);
+    const userTimezone = req.headers['x-user-timezone'] || 'Asia/Ho_Chi_Minh';
+    const quests = await ensureWeeklyQuestsForPet(pet, activePeriod, date, userTimezone);
 
     res.json({
         success: true,
@@ -116,7 +121,12 @@ exports.completeWeeklyQuest = catchAsync(async (req, res) => {
         xpNeeded = pet.stats.level * 100 + 800;
     }
     
+    // Áp dụng giảm chỉ số theo thời gian trước khi cộng thưởng
+    const { decayPetStats } = require('../utils/petStatsHelper');
+    decayPetStats(pet);
+
     pet.stats.mood = Math.min(100, Number(pet.stats.mood || 0) + 15); // Tăng nhiều mood hơn
+    pet.stats.energy = Math.min(100, Number(pet.stats.energy || 0) + 15);
     pet.markModified('stats');
     console.log(`[Pet Stats After Quest XP] level: ${pet.stats.level}, xp: ${pet.stats.xp}, mood: ${pet.stats.mood}`);
 

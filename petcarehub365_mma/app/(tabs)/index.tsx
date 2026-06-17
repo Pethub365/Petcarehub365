@@ -468,7 +468,7 @@ export default function HomeScreen() {
                     <Text style={styles.petCardSingleLabel}>Pet Name</Text>
                     <Text style={styles.petCardSingleName}>{selectedPet?.name || 'Rudy'}</Text>
                     <View style={styles.petCardSingleMoodRow}>
-                      <Text style={styles.petCardSingleMoodText}>😊 Mood: Happy</Text>
+                      <Text style={styles.petCardSingleMoodText}>😊 Mood: Happy • Cấp độ {selectedPet?.stats?.level ?? 1}</Text>
                     </View>
                   </View>
                   <TouchableOpacity
@@ -491,7 +491,7 @@ export default function HomeScreen() {
                     </Text>
                     <View style={styles.badgeRow}>
                       <View style={styles.profileLevelCapsule}>
-                        <Text style={styles.profileLevelText}>LEVEL {selectedPet?.stats?.level || 12}</Text>
+                        <Text style={styles.profileLevelText}>LEVEL {selectedPet?.stats?.level ?? 1}</Text>
                       </View>
                       <View style={styles.profileStreakCapsule}>
                         <Text style={styles.profileStreakText}>🔥 7-day streak</Text>
@@ -519,7 +519,7 @@ export default function HomeScreen() {
                       <Text style={styles.levelProgressTitle}>Tiến trình hiện tại</Text>
                     </View>
                     <Text style={styles.levelProgressDiff}>
-                      {selectedPet?.stats?.xp || 1300}/{((selectedPet?.stats?.level || 12) * 100 + 800) || 2000} XP
+                      {selectedPet?.stats?.xp ?? 0}/{((selectedPet?.stats?.level ?? 1) * 100 + 800)} XP
                     </Text>
                   </View>
 
@@ -528,13 +528,13 @@ export default function HomeScreen() {
                     <View style={[
                       styles.levelProgressFill,
                       {
-                        width: `${Math.min(100, Math.round(((selectedPet?.stats?.xp || 1300) / ((selectedPet?.stats?.level || 12) * 100 + 800)) * 100))}%`
+                        width: `${Math.min(100, Math.round(((selectedPet?.stats?.xp ?? 0) / ((selectedPet?.stats?.level ?? 1) * 100 + 800)) * 100))}%`
                       }
                     ]} />
                   </View>
 
                   <Text style={styles.levelProgressSub}>
-                    {Math.min(100, Math.round(((selectedPet?.stats?.xp || 1300) / ((selectedPet?.stats?.level || 12) * 100 + 800)) * 100))}% to Level {(selectedPet?.stats?.level || 12) + 1}! Giữ vững phong độ !
+                    {Math.min(100, Math.round(((selectedPet?.stats?.xp ?? 0) / ((selectedPet?.stats?.level ?? 1) * 100 + 800)) * 100))}% to Level {(selectedPet?.stats?.level ?? 1) + 1}! Giữ vững phong độ !
                   </Text>
                 </View>
 
@@ -548,7 +548,11 @@ export default function HomeScreen() {
                       <Ionicons name="checkbox" size={20} color="#2D9CDB" />
                     </View>
                     <Text style={styles.quickActionTitle}>Nhiệm vụ</Text>
-                    <Text style={styles.quickActionVal}>4/5 Done</Text>
+                    <Text style={styles.quickActionVal}>
+                      {quests.length > 0
+                        ? `${quests.filter(q => q.status === 'COMPLETED').length}/${quests.length} Done`
+                        : '0/0 Done'}
+                    </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity

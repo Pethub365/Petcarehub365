@@ -55,6 +55,14 @@ const dailyQuestSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  valid_from_hour: {
+    type: Number,
+    default: null
+  },
+  valid_until_hour: {
+    type: Number,
+    default: null
+  },
   // Gắn kết Affiliate Thương mại
   suggested_action: {
       has_product: { type: Boolean, default: false },

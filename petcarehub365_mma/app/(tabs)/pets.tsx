@@ -156,8 +156,8 @@ export default function PetsScreen() {
     }
   };
 
-  const currentLevel = displayPet?.stats?.level || 1;
-  const currentXp = displayPet?.stats?.xp || 0;
+  const currentLevel = displayPet?.stats?.level ?? 1;
+  const currentXp = displayPet?.stats?.xp ?? 0;
   const xpNeeded = currentLevel * 100 + 800;
   const remainingXp = xpNeeded - currentXp;
 
@@ -253,6 +253,9 @@ export default function PetsScreen() {
               </View>
             </TouchableOpacity>
             <Text style={styles.petName}>{displayPet?.name}</Text>
+            <Text style={styles.petBreedSub}>
+              {displayPet?.species === 'DOG' ? 'Chó' : displayPet?.species === 'CAT' ? 'Mèo' : 'Khác'} • {displayPet?.breed} • Cấp độ {currentLevel}
+            </Text>
             <Text style={styles.xpText}>{remainingXp} XP cho cấp độ tiếp theo</Text>
           </View>
 
@@ -349,6 +352,7 @@ const styles = StyleSheet.create({
   petImage: { width: '140%', height: '140%', resizeMode: 'cover' },
   pawPlaceholder: { width: 140, height: 140, borderRadius: 70, backgroundColor: '#FFF5F5', justifyContent: 'center', alignItems: 'center' },
   petName: { fontSize: 24, fontWeight: 'bold', color: '#1B2530', marginTop: 12, marginBottom: 4 },
+  petBreedSub: { fontSize: 14, color: '#8A9AA9', fontWeight: '600', marginBottom: 6 },
   xpText: { fontSize: 13, color: '#EC4B4B', fontWeight: 'bold', letterSpacing: 0.2 },
 
   moodCard: { backgroundColor: '#fff', borderRadius: 24, borderWidth: 1, borderColor: '#FFEBEB', padding: 20, marginVertical: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.01, shadowRadius: 4 },

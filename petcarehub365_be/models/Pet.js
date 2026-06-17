@@ -51,7 +51,8 @@ const petSchema = new mongoose.Schema({
     xp: { type: Number, default: 0 },
     level: { type: Number, default: 1 },
     mood: { type: Number, min: 0, max: 100, default: 100 },      // Thể hiện độ vui vẻ (Mood Bar)
-    energy: { type: Number, min: 0, max: 100, default: 100 }     // Năng lượng mỗi ngày
+    energy: { type: Number, min: 0, max: 100, default: 100 },     // Năng lượng mỗi ngày
+    last_decay_time: { type: Date, default: Date.now }
   }
 }, {
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }

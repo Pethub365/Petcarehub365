@@ -267,8 +267,8 @@ export default function PetDetailScreen() {
     );
   }
 
-  const currentLevel = pet?.stats?.level || 1;
-  const currentXp = pet?.stats?.xp || 0;
+  const currentLevel = pet?.stats?.level ?? 1;
+  const currentXp = pet?.stats?.xp ?? 0;
   const xpNeeded = currentLevel * 100 + 800;
   const remainingXp = xpNeeded - currentXp;
 
@@ -314,7 +314,7 @@ export default function PetDetailScreen() {
             </View>
           </View>
           <Text style={styles.petName}>{pet?.name || 'Rudy'}</Text>
-          <Text style={styles.petBreedSub}>{translateSpecies(pet?.species)} • {pet?.breed}</Text>
+          <Text style={styles.petBreedSub}>{translateSpecies(pet?.species)} • {pet?.breed} • Cấp độ {currentLevel}</Text>
           <Text style={styles.xpText}>{remainingXp} XP cho cấp độ tiếp theo</Text>
         </View>
 

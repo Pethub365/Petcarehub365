@@ -213,8 +213,20 @@ async function seed() {
       }
     ];
 
+    // Normalize stats to ensure level and XP are always in sync according to the progression formula
+    mockPets.forEach(pet => {
+      if (pet.stats) {
+        let xpNeeded = pet.stats.level * 100 + 800;
+        while (pet.stats.xp >= xpNeeded) {
+          pet.stats.level += 1;
+          pet.stats.xp -= xpNeeded;
+          xpNeeded = pet.stats.level * 100 + 800;
+        }
+      }
+    });
+
     await petsCollection.insertMany(mockPets);
-    console.log(`Seeded ${mockPets.length} pets.`);
+    console.log(`Seeded and normalized ${mockPets.length} pets.`);
 
     console.log('Seeding completed successfully.');
     process.exit(0);

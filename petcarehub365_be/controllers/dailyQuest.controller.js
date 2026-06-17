@@ -86,6 +86,10 @@ exports.getDailyQuests = catchAsync(async (req, res) => {
     if (!pet) {
         throw new ApiError(httpStatus.NOT_FOUND, 'Thú cưng không tồn tại');
     }
+
+    const { decayPetStats } = require('../utils/petStatsHelper');
+    // Calculate stats decay in-memory only, do not save to DB on GET API
+    decayPetStats(pet);
     const isOwner = pet.owner_id.toString() === req.user._id.toString();
     const familyGroup = await FamilyGroup.findOne({
         pet_ids: pet._id,
@@ -96,10 +100,17 @@ exports.getDailyQuests = catchAsync(async (req, res) => {
     }
 
     const { ensureDailyQuestsForPet } = require('../utils/questHelper');
-    let quests = await ensureDailyQuestsForPet(pet, date);
+    const userTimezone = req.headers['x-user-timezone'] || 'Asia/Ho_Chi_Minh';
+    let quests = await ensureDailyQuestsForPet(pet, date, userTimezone);
 
-    // Kiểm tra khóa bữa ăn tiếp theo sau 5 tiếng
-    const completedNutritions = quests.filter(q => q.category === 'NUTRITION' && q.status === 'COMPLETED');
+    // Kiểm tra khóa bữa ăn tiếp theo sau 5 tiếng (trong vòng 5 tiếng thực tế qua)
+    const fiveHoursAgo = new Date(Date.now() - 5 * 60 * 60 * 1000);
+    const completedNutritions = await DailyQuest.find({
+        pet_id: pet._id,
+        category: 'NUTRITION',
+        status: 'COMPLETED',
+        completed_at: { $gte: fiveHoursAgo }
+    });
     if (completedNutritions.length > 0) {
         const latestCompleted = completedNutritions.reduce((latest, current) => {
             const latestTime = new Date(latest.completed_at).getTime();
@@ -161,13 +172,14 @@ exports.completeQuest = catchAsync(async (req, res) => {
         throw new ApiError(httpStatus.BAD_REQUEST, 'Nhiệm vụ đã được hoàn thành trước đó');
     }
 
-    // Kiểm tra khóa bữa ăn tiếp theo sau 5 tiếng
+    // Kiểm tra khóa bữa ăn tiếp theo sau 5 tiếng (trong vòng 5 tiếng thực tế qua)
     if (quest.category === 'NUTRITION') {
+        const fiveHoursAgo = new Date(Date.now() - 5 * 60 * 60 * 1000);
         const completedNutritions = await DailyQuest.find({
             pet_id: quest.pet_id,
             category: 'NUTRITION',
             status: 'COMPLETED',
-            assigned_date: quest.assigned_date,
+            completed_at: { $gte: fiveHoursAgo },
             _id: { $ne: quest._id }
         });
         if (completedNutritions.length > 0) {
@@ -206,8 +218,13 @@ exports.completeQuest = catchAsync(async (req, res) => {
         xpNeeded = pet.stats.level * 100 + 800;
     }
     
+    // Áp dụng giảm chỉ số theo thời gian trước khi cộng thưởng
+    const { decayPetStats } = require('../utils/petStatsHelper');
+    decayPetStats(pet);
+
     // Tăng nhẹ mood và energy khi hoàn thành nhiệm vụ
-    pet.stats.mood = Math.min(100, pet.stats.mood + 5);
+    pet.stats.mood = Math.min(100, (pet.stats.mood || 0) + 5);
+    pet.stats.energy = Math.min(100, (pet.stats.energy || 0) + 5);
     pet.markModified('stats');
 
     // Cộng tiền xu (Coins) cho chủ sở hữu

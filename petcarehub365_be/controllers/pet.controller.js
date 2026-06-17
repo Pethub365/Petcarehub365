@@ -36,14 +36,14 @@ const parseDob = (dob) => {
 
 // 1. Tạo thú cưng mới
 exports.createPet = catchAsync(async (req, res) => {
-    // Giới hạn số lượng pet cho gói FREE (tối đa 1 pet)
+    // Giới hạn số lượng pet cho gói FREE (tối đa 10 pet)
     const userPlan = req.user.subscription_plan || 'FREE';
     if (userPlan === 'FREE') {
         const petCount = await Pet.countDocuments({ owner_id: req.user._id });
-        if (petCount >= 1) {
+        if (petCount >= 10) {
             throw new ApiError(
                 httpStatus.PAYMENT_REQUIRED,
-                'Gói Miễn Phí chỉ hỗ trợ lưu trữ tối đa 1 hồ sơ thú cưng. Vui lòng nâng cấp lên gói Premium để lưu trữ không giới hạn.',
+                'Gói Miễn Phí chỉ hỗ trợ lưu trữ tối đa 10 hồ sơ thú cưng. Vui lòng nâng cấp lên gói Premium để lưu trữ không giới hạn.',
                 { code: 'UPGRADE_REQUIRED', required_plan: 'PREMIUM', current_plan: 'FREE' }
             );
         }
@@ -131,10 +131,14 @@ exports.getPets = catchAsync(async (req, res) => {
     });
 
     const { ensureDailyQuestsForPet } = require('../utils/questHelper');
+    const { decayPetStats } = require('../utils/petStatsHelper');
     const enrichedPets = [];
     for (const pet of pets) {
         try {
-            const quests = await ensureDailyQuestsForPet(pet, new Date());
+            // Calculate stats decay in-memory only, do not save to DB on GET API
+            decayPetStats(pet);
+            const userTimezone = req.headers['x-user-timezone'] || 'Asia/Ho_Chi_Minh';
+            const quests = await ensureDailyQuestsForPet(pet, new Date(), userTimezone);
             const isTodayQuestsCompleted = quests.length > 0 && quests.every(q => q.status === 'COMPLETED');
             
             const petObj = pet.toObject();
@@ -163,6 +167,10 @@ exports.getPetById = catchAsync(async (req, res) => {
         throw new ApiError(httpStatus.NOT_FOUND, 'Không tìm thấy thú cưng');
     }
 
+    const { decayPetStats } = require('../utils/petStatsHelper');
+    // Calculate stats decay in-memory only, do not save to DB on GET API
+    decayPetStats(pet);
+
     // Kiểm tra quyền: chủ sở hữu hoặc thành viên gia đình chứa pet này
     const isOwner = pet.owner_id.toString() === req.user._id.toString();
     const familyGroup = await FamilyGroup.findOne({
@@ -177,7 +185,8 @@ exports.getPetById = catchAsync(async (req, res) => {
     const { ensureDailyQuestsForPet } = require('../utils/questHelper');
     let isTodayQuestsCompleted = false;
     try {
-        const quests = await ensureDailyQuestsForPet(pet, new Date());
+        const userTimezone = req.headers['x-user-timezone'] || 'Asia/Ho_Chi_Minh';
+        const quests = await ensureDailyQuestsForPet(pet, new Date(), userTimezone);
         isTodayQuestsCompleted = quests.length > 0 && quests.every(q => q.status === 'COMPLETED');
     } catch (err) {
         console.error('Error getting today quest status for pet', pet._id, err);

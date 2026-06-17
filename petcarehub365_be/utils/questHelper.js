@@ -1,3 +1,4 @@
+const moment = require('moment-timezone');
 const { DailyQuest, VetKnowledge, HealthLog, WeeklyQuest, User } = require('../models');
 
 const seedDefaultKnowledge = async () => {
@@ -69,10 +70,10 @@ const seedDefaultKnowledge = async () => {
     }
 };
 
-const ensureDailyQuestsForPet = async (pet, date = new Date()) => {
-    const targetDate = new Date(date);
-    const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0, 0);
-    const endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999);
+const ensureDailyQuestsForPet = async (pet, date = new Date(), reqTimezone = 'Asia/Ho_Chi_Minh') => {
+    const userNow = date ? moment.tz(date, reqTimezone) : moment.tz(reqTimezone);
+    const startOfDay = userNow.clone().startOf('day').toDate();
+    const endOfDay = userNow.clone().endOf('day').toDate();
 
     let quests = await DailyQuest.find({
         pet_id: pet._id,
@@ -121,7 +122,19 @@ const ensureDailyQuestsForPet = async (pet, date = new Date()) => {
                 title: 'Bữa sáng dinh dưỡng',
                 description: `Cho ${pet.name} ăn hạt dinh dưỡng hoặc thức ăn ướt phù hợp, cùng nước sạch.`,
                 category: 'NUTRITION',
-                status: 'PENDING'
+                status: 'PENDING',
+                valid_from_hour: 5,
+                valid_until_hour: 12
+            },
+            {
+                pet_id: pet._id,
+                assigned_date: startOfDay,
+                title: 'Bữa trưa dinh dưỡng',
+                description: `Cho ${pet.name} ăn bữa trưa nhẹ nhàng hoặc hạt dinh dưỡng đúng giờ.`,
+                category: 'NUTRITION',
+                status: 'PENDING',
+                valid_from_hour: 12,
+                valid_until_hour: 18
             },
             {
                 pet_id: pet._id,
@@ -129,7 +142,9 @@ const ensureDailyQuestsForPet = async (pet, date = new Date()) => {
                 title: 'Bữa tối ấm cúng',
                 description: `Cho ${pet.name} ăn bữa tối đúng giờ và rửa sạch bát ăn.`,
                 category: 'NUTRITION',
-                status: 'PENDING'
+                status: 'PENDING',
+                valid_from_hour: 18,
+                valid_until_hour: 24
             }
         ];
 
@@ -314,29 +329,30 @@ const ensureDailyQuestsForPet = async (pet, date = new Date()) => {
                     suggested_action: {
                         has_product: !!knowledge.related_product_metadata?.product_category,
                         product_query_tag: knowledge.related_product_metadata?.product_category || null
-                    }
+                    },
+                    reward_xp: knowledge.base_reward_xp
                 });
             }
         }
 
-        // PHÂN CHIA EXP VÀ COIN ĐỂ ĐẢM BẢO TỔNG SỐ KHÔNG ĐỔI MỖI NGÀY
-        const N = defaultQuests.length;
-        if (N > 0) {
-            const DAILY_EXP_LIMIT = isVip ? 200 : 100;
-            const DAILY_COIN_LIMIT = isVip ? 40 : 20;
+        // Cố định phần thưởng XP và Coins theo độ khó/danh mục của từng nhiệm vụ thay vì chia đều
+        const xpMap = {
+            'NUTRITION': 15,
+            'DAILY_ROUTINE': 30,
+            'TRAINING': 40,
+            'HEALTH_CARE': 50
+        };
+        const coinMap = {
+            'NUTRITION': 5,
+            'DAILY_ROUTINE': 10,
+            'TRAINING': 15,
+            'HEALTH_CARE': 15
+        };
 
-            const baseXp = Math.floor(DAILY_EXP_LIMIT / N);
-            const baseCoin = Math.floor(DAILY_COIN_LIMIT / N);
-
-            let remainingXp = DAILY_EXP_LIMIT - (baseXp * N);
-            let remainingCoin = DAILY_COIN_LIMIT - (baseCoin * N);
-
-            for (let i = 0; i < N; i++) {
-                defaultQuests[i].reward_xp = baseXp + (remainingXp > 0 ? 1 : 0);
-                defaultQuests[i].reward_coin = baseCoin + (remainingCoin > 0 ? 1 : 0);
-                if (remainingXp > 0) remainingXp--;
-                if (remainingCoin > 0) remainingCoin--;
-            }
+        for (let i = 0; i < defaultQuests.length; i++) {
+            const q = defaultQuests[i];
+            q.reward_xp = q.reward_xp || xpMap[q.category] || 30;
+            q.reward_coin = q.reward_coin || coinMap[q.category] || 10;
         }
 
         quests = await DailyQuest.insertMany(defaultQuests);
@@ -350,30 +366,65 @@ const ensureDailyQuestsForPet = async (pet, date = new Date()) => {
         }).populate('source_knowledge_id');
     }
 
-    return quests;
+    // Tự động kiểm tra và chuyển các nhiệm vụ PENDING quá hạn thành MISSED
+    const now = new Date();
+    const isToday = now.getFullYear() === startOfDay.getFullYear() &&
+                    now.getMonth() === startOfDay.getMonth() &&
+                    now.getDate() === startOfDay.getDate();
+    
+    // Nếu là ngày cũ, giả định giờ hiện tại là 24 để đánh dấu MISSED hết các quest PENDING quá hạn
+    const currentHour = isToday ? now.getHours() : 24;
+    let hasUpdates = false;
+
+    for (let i = 0; i < quests.length; i++) {
+        const q = quests[i];
+        if (q.status === 'PENDING' && q.valid_until_hour !== null && q.valid_until_hour !== undefined) {
+            if (currentHour >= q.valid_until_hour) {
+                q.status = 'MISSED';
+                await q.save();
+                hasUpdates = true;
+            }
+        }
+    }
+
+    if (hasUpdates) {
+        quests = await DailyQuest.find({
+            pet_id: pet._id,
+            assigned_date: {
+                $gte: startOfDay,
+                $lte: endOfDay
+            }
+        }).populate('source_knowledge_id');
+    }
+
+    // Lọc chỉ trả về các nhiệm vụ đã đến giờ hiển thị
+    const filteredQuests = quests.filter(q => {
+        if (q.valid_from_hour !== null && q.valid_from_hour !== undefined) {
+            return currentHour >= q.valid_from_hour;
+        }
+        return true;
+    });
+
+    return filteredQuests;
 };
 
-const ensureWeeklyQuestsForPet = async (pet, period = 'WEEKLY', date = new Date()) => {
-    const targetDate = new Date(date);
+const ensureWeeklyQuestsForPet = async (pet, period = 'WEEKLY', date = new Date(), reqTimezone = 'Asia/Ho_Chi_Minh') => {
+    const userNow = date ? moment.tz(date, reqTimezone) : moment.tz(reqTimezone);
     let start, end;
 
     if (period === 'WEEKLY') {
-        const day = targetDate.getDay();
-        const diff = targetDate.getDate() - (day === 0 ? 6 : day - 1);
-        start = new Date(targetDate.getFullYear(), targetDate.getMonth(), diff, 0, 0, 0, 0);
-        end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000 - 1);
+        start = userNow.clone().startOf('isoWeek').toDate(); // Thứ Hai 00:00:00
+        end = userNow.clone().endOf('isoWeek').toDate();     // Chủ Nhật 23:59:59
     } else if (period === 'MONTHLY') {
-        start = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1, 0, 0, 0, 0);
-        end = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0, 23, 59, 59, 999);
+        start = userNow.clone().startOf('month').toDate();   // Ngày 1 đầu tháng
+        end = userNow.clone().endOf('month').toDate();
     } else if (period === 'ANNUAL') {
-        start = new Date(targetDate.getFullYear(), 0, 1, 0, 0, 0, 0);
-        end = new Date(targetDate.getFullYear(), 11, 31, 23, 59, 59, 999);
+        start = userNow.clone().startOf('year').toDate();    // Ngày 1/1 đầu năm
+        end = userNow.clone().endOf('year').toDate();
     } else {
         period = 'WEEKLY';
-        const day = targetDate.getDay();
-        const diff = targetDate.getDate() - (day === 0 ? 6 : day - 1);
-        start = new Date(targetDate.getFullYear(), targetDate.getMonth(), diff, 0, 0, 0, 0);
-        end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000 - 1);
+        start = userNow.clone().startOf('isoWeek').toDate();
+        end = userNow.clone().endOf('isoWeek').toDate();
     }
 
     let quests = await WeeklyQuest.find({

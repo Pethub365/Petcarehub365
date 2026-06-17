@@ -171,9 +171,10 @@ exports.joinFamily = catchAsync(async (req, res) => {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Bạn đã tham gia một nhóm gia đình rồi');
   }
 
-  // Find invitation
+  // Find invitation matching invite code and the logged-in user's email
   const invitation = await FamilyInvitation.findOne({
     token_hash: inviteCode.toUpperCase(),
+    invited_email: req.user.email.toLowerCase(),
     status: 'PENDING',
     expires_at: { $gt: new Date() }
   });
