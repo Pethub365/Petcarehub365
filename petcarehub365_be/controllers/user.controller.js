@@ -2,6 +2,16 @@ const httpStatus = require('http-status');
 const catchAsync = require('../utils/catchAsync');
 const { User } = require('../models');
 const cloudinary = require('../config/cloudinary');
+const config = require('../config/config');
+
+const isCloudinaryConfigured = () => {
+    return !!(config.cloudinary.cloudName && config.cloudinary.apiKey && config.cloudinary.apiSecret);
+};
+
+const fileToBase64DataURI = (file) => {
+    const b64 = Buffer.from(file.buffer).toString('base64');
+    return `data:${file.mimetype};base64,${b64}`;
+};
 
 exports.getProfile = catchAsync(async (req, res) => {
     const user = await User.findById(req.user._id).populate('global_role_ids');
@@ -14,12 +24,21 @@ exports.updateProfile = catchAsync(async (req, res) => {
 
     // Handle avatar upload
     if (req.file) {
-        const b64 = Buffer.from(req.file.buffer).toString('base64');
-        const dataURI = `data:${req.file.mimetype};base64,${b64}`;
-        const result = await cloudinary.uploader.upload(dataURI, {
-            folder: 'petcarehub365/avatars',
-        });
-        user.profile.avatar_url = result.secure_url;
+        if (isCloudinaryConfigured()) {
+            try {
+                const b64 = Buffer.from(req.file.buffer).toString('base64');
+                const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+                const result = await cloudinary.uploader.upload(dataURI, {
+                    folder: 'petcarehub365/avatars',
+                });
+                user.profile.avatar_url = result.secure_url;
+            } catch (err) {
+                console.error('Cloudinary upload failed, falling back to base64:', err);
+                user.profile.avatar_url = fileToBase64DataURI(req.file);
+            }
+        } else {
+            user.profile.avatar_url = fileToBase64DataURI(req.file);
+        }
     }
 
     if (full_name !== undefined) user.profile.full_name = full_name;

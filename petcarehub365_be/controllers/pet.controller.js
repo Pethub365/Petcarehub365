@@ -3,6 +3,12 @@ const mongoose = require('mongoose');
 const catchAsync = require('../utils/catchAsync');
 const { Pet } = require('../models');
 const ApiError = require('../utils/ApiError');
+const cloudinary = require('../config/cloudinary');
+const config = require('../config/config');
+
+const isCloudinaryConfigured = () => {
+    return !!(config.cloudinary.cloudName && config.cloudinary.apiKey && config.cloudinary.apiSecret);
+};
 
 // Chuyển file upload thành Base64 data URI để lưu trực tiếp vào MongoDB
 const fileToBase64DataURI = (file) => {
@@ -52,9 +58,24 @@ exports.createPet = catchAsync(async (req, res) => {
     const { name, species, breed, dob, weight, gender, is_neutered, health_status } = req.body;
 
     let avatar_url = null;
-    // Lưu ảnh dưới dạng Base64 trực tiếp vào MongoDB (không cần cloud)
+    // Lưu ảnh lên Cloudinary nếu cấu hình, ngược lại lưu dạng Base64 trực tiếp vào MongoDB
     if (req.file) {
-        avatar_url = fileToBase64DataURI(req.file);
+        if (isCloudinaryConfigured()) {
+            try {
+                const b64 = Buffer.from(req.file.buffer).toString('base64');
+                const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+                const result = await cloudinary.uploader.upload(dataURI, {
+                    folder: 'petcarehub365',
+                    resource_type: 'image',
+                });
+                avatar_url = result.secure_url;
+            } catch (err) {
+                console.error('Cloudinary upload failed, falling back to base64:', err);
+                avatar_url = fileToBase64DataURI(req.file);
+            }
+        } else {
+            avatar_url = fileToBase64DataURI(req.file);
+        }
     }
 
     const pet = await Pet.create({
@@ -223,9 +244,24 @@ exports.updatePet = catchAsync(async (req, res) => {
 
     const { name, species, breed, dob, weight, gender, is_neutered, health_status } = req.body;
 
-    // Cập nhật ảnh đại diện dưới dạng Base64 trực tiếp vào MongoDB (không cần cloud)
+    // Cập nhật ảnh đại diện lên Cloudinary (nếu cấu hình) hoặc lưu Base64 vào MongoDB
     if (req.file) {
-        pet.avatar_url = fileToBase64DataURI(req.file);
+        if (isCloudinaryConfigured()) {
+            try {
+                const b64 = Buffer.from(req.file.buffer).toString('base64');
+                const dataURI = `data:${req.file.mimetype};base64,${b64}`;
+                const result = await cloudinary.uploader.upload(dataURI, {
+                    folder: 'petcarehub365',
+                    resource_type: 'image',
+                });
+                pet.avatar_url = result.secure_url;
+            } catch (err) {
+                console.error('Cloudinary upload failed, falling back to base64:', err);
+                pet.avatar_url = fileToBase64DataURI(req.file);
+            }
+        } else {
+            pet.avatar_url = fileToBase64DataURI(req.file);
+        }
     }
 
     if (name !== undefined) pet.name = name;
