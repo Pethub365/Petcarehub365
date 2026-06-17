@@ -153,8 +153,7 @@ exports.getPets = catchAsync(async (req, res) => {
 
     const { ensureDailyQuestsForPet } = require('../utils/questHelper');
     const { decayPetStats } = require('../utils/petStatsHelper');
-    const enrichedPets = [];
-    for (const pet of pets) {
+    const enrichedPets = await Promise.all(pets.map(async (pet) => {
         try {
             // Calculate stats decay in-memory only, do not save to DB on GET API
             decayPetStats(pet);
@@ -164,14 +163,14 @@ exports.getPets = catchAsync(async (req, res) => {
             
             const petObj = pet.toObject();
             petObj.isTodayQuestsCompleted = isTodayQuestsCompleted;
-            enrichedPets.push(petObj);
+            return petObj;
         } catch (err) {
             console.error('Error getting today quest status for pet', pet._id, err);
             const petObj = pet.toObject();
             petObj.isTodayQuestsCompleted = false;
-            enrichedPets.push(petObj);
+            return petObj;
         }
-    }
+    }));
 
     res.json({
         success: true,

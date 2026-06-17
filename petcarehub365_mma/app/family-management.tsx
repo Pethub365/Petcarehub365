@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Alert, ActivityIndicator, Modal, TextInput, useColorScheme, Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Ionicons } from '@expo/vector-icons';
 import familyApi from '../apis/familyApi';
@@ -56,10 +56,12 @@ export default function FamilyManagementScreen() {
   // Loading indicator for actions
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    refreshUser().catch((err: any) => console.error("Error refreshing user context:", err));
-    fetchFamilyData();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      refreshUser().catch((err: any) => console.error("Error refreshing user context:", err));
+      fetchFamilyData();
+    }, [])
+  );
 
   const fetchFamilyData = async () => {
     try {
@@ -539,11 +541,13 @@ export default function FamilyManagementScreen() {
             <View style={styles.membersWrapper}>
               {displayMembers.map((member: any, idx: number) => {
                 const isMemberAdmin = member.role === 'ADMIN';
-                const memberName = member.user_id.profile?.full_name || member.user_id.email;
-                const avatarUrl = member.user_id.profile?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150';
+                const memberUser = member.user_id;
+                if (!memberUser) return null;
+                const memberName = memberUser.profile?.full_name || memberUser.email || 'Thành viên';
+                const avatarUrl = memberUser.profile?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150';
 
                 return (
-                  <View key={member.user_id._id} style={[styles.memberCard, { backgroundColor: bgColors.card, borderColor: bgColors.border }]}>
+                  <View key={memberUser._id} style={[styles.memberCard, { backgroundColor: bgColors.card, borderColor: bgColors.border }]}>
                     <Image source={{ uri: avatarUrl }} style={styles.memberAvatarImage} />
                     <View style={styles.memberInfo}>
                       <Text style={[styles.memberName, { color: bgColors.text }]}>{memberName}</Text>

@@ -27,13 +27,10 @@ export default function AppShell() {
 
   const emailLower = user?.email?.toLowerCase() || '';
   const isOnlyAdmin = emailLower.includes('admin');
-  const isDevOrTest = emailLower.includes('tiendat') || emailLower.includes('test') || emailLower.includes('ngoc');
 
   const dynamicNavItems = isOnlyAdmin
     ? [ { to: '/admin/stats', icon: BarChart2, label: 'Thống kê Admin' } ]
-    : isDevOrTest
-      ? [ ...navItems, { to: '/admin/stats', icon: BarChart2, label: 'Thống kê Admin' } ]
-      : navItems;
+    : navItems;
 
   const displayName = user?.profile?.full_name || user?.email?.split('@')[0] || 'User';
   const avatarUrl = user?.profile?.avatar_url;

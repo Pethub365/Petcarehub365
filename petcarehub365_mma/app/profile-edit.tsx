@@ -61,8 +61,10 @@ export default function ProfileEditScreen() {
       formData.append('phone', phone);
 
       if (selectedImage) {
-        const uriParts = selectedImage.split('.');
-        const fileType = uriParts[uriParts.length - 1];
+        const cleanUri = selectedImage.split('?')[0];
+        const uriParts = cleanUri.split('.');
+        const fileExt = uriParts[uriParts.length - 1] || 'jpg';
+        const fileType = fileExt.toLowerCase();
         
         formData.append('avatar', {
           uri: selectedImage,
@@ -77,8 +79,8 @@ export default function ProfileEditScreen() {
       ]);
     } catch (err: any) {
       console.error(err);
-      Alert.alert('Thành công', 'Đã lưu thay đổi thông tin cá nhân.');
-      router.back();
+      const errorMsg = err.response?.data?.error?.message || err.response?.data?.message || 'Có lỗi xảy ra khi lưu thông tin cá nhân';
+      Alert.alert('Thất bại', errorMsg);
     } finally {
       setLoading(false);
     }

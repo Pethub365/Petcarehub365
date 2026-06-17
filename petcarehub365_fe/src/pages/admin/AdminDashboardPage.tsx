@@ -1,11 +1,17 @@
 import { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { Users, PawPrint, DollarSign, RefreshCw, TrendingUp, ShieldAlert, Award } from 'lucide-react';
 import adminApi from '../../api/adminApi';
 
 export default function AdminDashboardPage() {
+  const { user } = useAuth();
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const emailLower = user?.email?.toLowerCase() || '';
+  const isAdmin = emailLower.includes('admin');
 
   const loadStats = async () => {
     try {
@@ -25,8 +31,14 @@ export default function AdminDashboardPage() {
   };
 
   useEffect(() => {
-    loadStats();
-  }, []);
+    if (isAdmin) {
+      loadStats();
+    }
+  }, [isAdmin]);
+
+  if (!isAdmin) {
+    return <Navigate to="/" replace />;
+  }
 
   const formatVND = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);

@@ -80,7 +80,24 @@ export default function SettingsScreen() {
               )}
             </View>
             <View style={styles.profileDetails}>
-              <Text style={styles.userName}>{user?.profile?.full_name || 'Nguyễn Văn An'}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <Text style={styles.userName}>{user?.profile?.full_name || 'Nguyễn Văn An'}</Text>
+                {user?.subscription_plan && user.subscription_plan !== 'FREE' && (
+                  <View style={[
+                    styles.planBadge,
+                    user.subscription_plan === 'VIP' 
+                      ? { backgroundColor: '#FFFBEB', borderColor: '#F5C518' } 
+                      : { backgroundColor: '#E3F2FD', borderColor: '#0068FF' }
+                  ]}>
+                    <Text style={[
+                      styles.planBadgeText,
+                      user.subscription_plan === 'VIP' ? { color: '#D4A017' } : { color: '#0068FF' }
+                    ]}>
+                      {user.subscription_plan === 'VIP' ? '👑 VIP' : '⭐ Premium'}
+                    </Text>
+                  </View>
+                )}
+              </View>
               <Text style={styles.userEmail}>{user?.email || 'an.nguyen@petcarehub.vn'}</Text>
             </View>
           </View>
@@ -331,6 +348,18 @@ const styles = StyleSheet.create({
     fontSize: 18, 
     fontWeight: 'bold', 
     color: '#1B2530' 
+  },
+  planBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  planBadgeText: {
+    fontSize: 9,
+    fontWeight: 'bold',
   },
   userEmail: { 
     fontSize: 13, 

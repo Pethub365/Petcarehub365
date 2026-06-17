@@ -496,6 +496,21 @@ export default function HomeScreen() {
                       <View style={styles.profileStreakCapsule}>
                         <Text style={styles.profileStreakText}>🔥 7-day streak</Text>
                       </View>
+                      {currentUser?.subscription_plan && currentUser.subscription_plan !== 'FREE' && (
+                        <View style={[
+                          styles.profilePlanCapsule,
+                          currentUser.subscription_plan === 'VIP' 
+                            ? { backgroundColor: '#FFF9E6', borderColor: '#F5C518', borderWidth: 1 } 
+                            : { backgroundColor: '#E1F0FF', borderColor: '#2D9CDB', borderWidth: 1 }
+                        ]}>
+                          <Text style={[
+                            styles.profilePlanText,
+                            currentUser.subscription_plan === 'VIP' ? { color: '#D4A017' } : { color: '#2D9CDB' }
+                          ]}>
+                            {currentUser.subscription_plan === 'VIP' ? '👑 VIP' : '⭐ Premium'}
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   </View>
                   {currentUser?.profile?.avatar_url ? (
@@ -877,6 +892,8 @@ const styles = StyleSheet.create({
   profileStreakCapsule: { backgroundColor: '#FFF0F0', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12 },
   profileStreakText: { fontSize: 9, fontWeight: 'bold', color: '#EC4B4B' },
   userAvatarImage: { width: 60, height: 60, borderRadius: 30, borderWidth: 1, borderColor: '#FFEBEB' },
+  profilePlanCapsule: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  profilePlanText: { fontSize: 9, fontWeight: 'bold' },
 
   levelProgressCard: { backgroundColor: '#fff', borderRadius: 20, padding: 14, borderWidth: 1, borderColor: '#FFEBEB', marginBottom: 10 },
   levelCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },

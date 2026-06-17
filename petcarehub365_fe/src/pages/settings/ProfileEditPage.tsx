@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Upload, User, Mail, Phone, MapPin } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -12,18 +12,48 @@ export default function ProfileEditPage() {
     bio: user?.profile?.bio || '',
     address: user?.profile?.address || '',
   });
+  const [avatar, setAvatar] = useState<File | null>(null);
+  const [preview, setPreview] = useState('');
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
+
+  const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatar(file);
+    setPreview(URL.createObjectURL(file));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(''); setMsg('');
     setLoading(true);
-    const res = await updateProfile(form) as any;
-    setLoading(false);
-    if (res?.success) { setMsg('Hồ sơ đã được cập nhật thành công!'); setTimeout(() => setMsg(''), 3000); }
-    else setError(res?.message || 'Cập nhật thất bại');
+
+    try {
+      const fd = new FormData();
+      fd.append('full_name', form.full_name);
+      fd.append('phone', form.phone);
+      fd.append('bio', form.bio);
+      fd.append('address', form.address);
+      if (avatar) {
+        fd.append('avatar', avatar);
+      }
+
+      const res = await updateProfile(fd) as any;
+      setLoading(false);
+      if (res?.success) {
+        setMsg('Hồ sơ đã được cập nhật thành công!');
+        setAvatar(null);
+        setPreview('');
+        setTimeout(() => setMsg(''), 3000);
+      } else {
+        setError(res?.message || 'Cập nhật thất bại');
+      }
+    } catch (err: any) {
+      setLoading(false);
+      setError(err.message || 'Có lỗi xảy ra khi lưu thông tin');
+    }
   };
 
   const displayName = user?.profile?.full_name || user?.email?.split('@')[0] || 'User';
@@ -41,14 +71,21 @@ export default function ProfileEditPage() {
 
       {/* Avatar */}
       <div className="card" style={{ textAlign:'center', marginBottom:20 }}>
-        <div className="avatar avatar-xl" style={{ margin:'0 auto 16px', fontSize:36, background:'var(--primary-bg)' }}>
-          {avatarUrl ? <img src={avatarUrl} alt={displayName} style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}}/> : displayName.charAt(0).toUpperCase()}
+        <div className="avatar avatar-xl" style={{ margin:'0 auto 16px', fontSize:36, background:'var(--primary-bg)', overflow:'hidden' }}>
+          {preview ? (
+            <img src={preview} alt="preview" style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}}/>
+          ) : avatarUrl ? (
+            <img src={avatarUrl} alt={displayName} style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}}/>
+          ) : (
+            displayName.charAt(0).toUpperCase()
+          )}
         </div>
         <div style={{ fontWeight:700, fontSize:18 }}>{displayName}</div>
         <div style={{ fontSize:13, color:'var(--text-3)', marginBottom:16 }}>{user?.email}</div>
-        <button className="btn btn-outline btn-sm">
+        <label className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', margin: '0 auto' }}>
           <Upload size={14}/> Thay đổi ảnh đại diện
-        </button>
+          <input type="file" accept="image/*" onChange={handleImage} style={{ display: 'none' }} />
+        </label>
       </div>
 
       <form className="card" onSubmit={handleSubmit}>

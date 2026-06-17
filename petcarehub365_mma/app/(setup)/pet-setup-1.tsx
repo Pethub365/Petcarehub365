@@ -194,7 +194,7 @@ export default function PetSetup1Screen() {
             ) : (
                 <TextInput 
                     style={styles.input} 
-                    placeholder="Ex: Vẹt đuôi dài, Chuột Hamster..." 
+                    placeholder="Giống thú cưng khác (VD: Rùa, Nhím...)" 
                     placeholderTextColor="#A5B2C0"
                     value={customBreed}
                     onChangeText={setCustomBreed}

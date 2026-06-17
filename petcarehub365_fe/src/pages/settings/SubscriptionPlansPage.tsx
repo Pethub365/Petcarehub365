@@ -90,8 +90,12 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
   };
 
   const closeCheckout = () => {
+    const wasSuccess = !!successData;
     setCheckoutPlan(null);
     setSuccessData(null);
+    if (wasSuccess) {
+      navigate('/', { replace: true });
+    }
   };
 
   const planIcons: Record<string, any> = {

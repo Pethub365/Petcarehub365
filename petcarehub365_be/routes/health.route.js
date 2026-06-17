@@ -5,6 +5,12 @@ const { auth } = require('../middleware/auth');
 
 router.use(auth());
 
+router.route('/logs/:logId')
+  .delete(healthController.deleteHealthLog);
+
+router.route('/vaccines/:vaccineId')
+  .delete(healthController.deleteVaccine);
+
 router.route('/:petId/logs')
   .get(healthController.getHealthLogs)
   .post(healthController.addHealthLog);

@@ -7,7 +7,7 @@ const FILTERS = [
   { value:'monthly', label:'Tháng này' },
   { value:'all', label:'Tất cả' },
 ];
-const SPECIES_FILTERS = ['all','dog','cat','bird','rabbit','hamster','other'];
+const SPECIES_FILTERS = ['all','dog','cat','other'];
 
 export default function RanksPage() {
   const [board, setBoard] = useState<any[]>([]);

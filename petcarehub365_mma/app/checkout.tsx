@@ -51,7 +51,7 @@ export default function CheckoutScreen() {
           [
             {
               text: 'Bắt đầu ngay',
-              onPress: () => { router.replace('/(tabs)/shop'); }
+              onPress: () => { router.replace('/(tabs)'); }
             }
           ]
         );

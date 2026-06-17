@@ -1,10 +1,15 @@
 import axiosClient from './axiosClient';
 
 const healthApi = {
-  getHealthRecords: (petId: string) => axiosClient.get(`/health-records?pet_id=${petId}`),
-  createHealthRecord: (data: any) => axiosClient.post('/health-records', data),
-  updateHealthRecord: (id: string, data: any) => axiosClient.put(`/health-records/${id}`, data),
-  deleteHealthRecord: (id: string) => axiosClient.delete(`/health-records/${id}`),
+  getLogs: (petId: string) => axiosClient.get(`/pet-health/${petId}/logs`),
+  addLog: (petId: string, data: { weight: number; height: number; heart_rate?: number; temperature?: number; measured_at?: string }) => 
+    axiosClient.post(`/pet-health/${petId}/logs`, data),
+  deleteLog: (logId: string) => axiosClient.delete(`/pet-health/logs/${logId}`),
+
+  getVaccines: (petId: string) => axiosClient.get(`/pet-health/${petId}/vaccines`),
+  addVaccine: (petId: string, data: { vaccine_name: string; administered_date: string; next_due_date?: string; notes?: string }) => 
+    axiosClient.post(`/pet-health/${petId}/vaccines`, data),
+  deleteVaccine: (vaccineId: string) => axiosClient.delete(`/pet-health/vaccines/${vaccineId}`),
 };
 
 export default healthApi;

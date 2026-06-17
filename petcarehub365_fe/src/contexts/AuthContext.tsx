@@ -1,11 +1,14 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import authApi from '../api/authApi';
 import userApi from '../api/userApi';
+import petApi from '../api/petApi';
 
 interface AuthContextType {
   user: any;
   isAuthenticated: boolean;
   loading: boolean;
+  pets: any[];
+  loadingPets: boolean;
   login: (identifier: string, password: string, rememberMe?: boolean) => Promise<any>;
   register: (data: any) => Promise<any>;
   forgotPassword: (email: string) => Promise<any>;
@@ -14,6 +17,7 @@ interface AuthContextType {
   changePassword: (data: any) => Promise<any>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  refreshPets: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -28,6 +32,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<any>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [pets, setPets] = useState<any[]>([]);
+  const [loadingPets, setLoadingPets] = useState(false);
+
+  const refreshPets = async () => {
+    try {
+      setLoadingPets(true);
+      const res = await petApi.getPets() as any;
+      if (res?.success) {
+        setPets(res.data.pets || []);
+      }
+    } catch (err) {
+      console.error('Failed to load pets in context:', err);
+    } finally {
+      setLoadingPets(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      refreshPets();
+    } else {
+      setPets([]);
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -163,9 +191,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <AuthContext.Provider value={{
-      user, isAuthenticated, loading,
+      user, isAuthenticated, loading, pets, loadingPets,
       login, register, forgotPassword, resetPassword,
-      updateProfile, changePassword, logout, refreshUser,
+      updateProfile, changePassword, logout, refreshUser, refreshPets,
     }}>
       {children}
     </AuthContext.Provider>

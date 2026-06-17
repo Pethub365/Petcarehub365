@@ -484,7 +484,7 @@ export default function PetDetailScreen() {
                       style={styles.input} 
                       value={editCustomBreed}
                       onChangeText={setEditCustomBreed}
-                      placeholder="Ví dụ: Vẹt, Hamster..."
+                      placeholder="Ví dụ: Rùa, Nhím..."
                     />
                   )}
                 </View>

@@ -1,10 +1,12 @@
 import axiosClient from './axiosClient';
 
 const familyApi = {
-  getFamilyMembers: () => axiosClient.get('/family'),
-  inviteMember: (email: string) => axiosClient.post('/family/invite', { email }),
-  removeMember: (memberId: string) => axiosClient.delete(`/family/members/${memberId}`),
-  acceptInvite: (token: string) => axiosClient.post('/family/accept', { token }),
+  getFamilyGroup: () => axiosClient.get('/family'),
+  createFamilyGroup: (groupName: string) => axiosClient.post('/family/create', { group_name: groupName }),
+  inviteMember: (email: string) => axiosClient.post('/family/invite', { invited_email: email }),
+  joinFamily: (inviteCode: string) => axiosClient.post('/family/join', { inviteCode }),
+  getPendingInvitations: () => axiosClient.get('/family/invitations/pending'),
+  removeMember: (memberUserId: string) => axiosClient.delete(`/family/members/${memberUserId}`),
 };
 
 export default familyApi;

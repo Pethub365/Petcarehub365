@@ -6,7 +6,8 @@ const MAX_SIZE_MB = 5;
 const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
-  if (!ALLOWED_TYPES.includes(file.mimetype)) {
+  const mimeType = (file.mimetype || '').toLowerCase();
+  if (!ALLOWED_TYPES.includes(mimeType)) {
     return cb(
       new Error(`Only the following image formats are accepted: ${ALLOWED_TYPES.join(', ')}`),
       false

@@ -1,33 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Edit2, Trash2, PawPrint, Heart, Star } from 'lucide-react';
 import petApi from '../../api/petApi';
 
+import { useAuth } from '../../contexts/AuthContext';
+
 export default function PetsPage() {
   const navigate = useNavigate();
-  const [pets, setPets] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { pets, loadingPets: loading, refreshPets } = useAuth();
   const [deleting, setDeleting] = useState<string | null>(null);
-
-  const load = async () => {
-    try {
-      setLoading(true);
-      const res = await petApi.getPets() as any;
-      if (res?.success) setPets(res.data.pets || []);
-    } finally { setLoading(false); }
-  };
-
-  useEffect(() => { load(); }, []);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Bạn có chắc muốn xóa thú cưng này không?')) return;
     setDeleting(id);
     await petApi.deletePet(id);
+    await refreshPets();
     setDeleting(null);
-    load();
   };
 
-  const SPECIES_EMOJI: Record<string, string> = { dog:'🐕', cat:'🐈', bird:'🦜', rabbit:'🐇', fish:'🐟', hamster:'🐹' };
+  const SPECIES_EMOJI: Record<string, string> = { dog:'🐕', cat:'🐈' };
 
   return (
     <div>
