@@ -65,6 +65,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(apiLogger);
 
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.get('/', (req, res) => res.send('PetcareHub365 API Running 🐾'));
 
 app.use('/api/v1', routes);
