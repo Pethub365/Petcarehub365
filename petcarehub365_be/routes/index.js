@@ -11,6 +11,7 @@ const achievementRoute = require('./achievement.route');
 const healthRoute = require('./health.route');
 const familyRoute = require('./family.route');
 const subscriptionRoute = require('./subscription.route');
+const adminRoute = require('./admin.route');
 
 // TODO: Import more routes as you build features
 // const productRoute = require('./product.route');
@@ -26,6 +27,7 @@ const defaultRoutes = [
     { path: '/pet-health', route: healthRoute },
     { path: '/family', route: familyRoute },
     { path: '/subscriptions', route: subscriptionRoute },
+    { path: '/admin', route: adminRoute },
     { path: '/auth', route: authRoute },
     { path: '/users/addresses', route: userAddressRoute },
     { path: '/users', route: userRoute },

@@ -4,6 +4,7 @@ const register = {
     body: Joi.object({
         email: Joi.string().email().required(),
         password: Joi.string().min(8).required(),
+        username: Joi.string().optional(),
         full_name: Joi.string().optional(),
     }),
 };

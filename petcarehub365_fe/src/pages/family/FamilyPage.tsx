@@ -48,7 +48,17 @@ export default function FamilyPage() {
             <Users size={16} style={{ marginRight:6, display:'inline' }}/> Thành viên ({members.length})
           </div>
           {loading ? (
-            <div className="page-loader"><div className="spinner spinner-lg"/></div>
+            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              {[1,2].map(i => (
+                <div key={i} style={{ display:'flex', alignItems:'center', gap:14, padding:'14px' }}>
+                  <div className="skeleton" style={{ width:44, height:44, borderRadius:'50%', flexShrink:0 }} />
+                  <div style={{ flex:1 }}>
+                    <div className="skeleton" style={{ width:120, height:16, marginBottom:6 }} />
+                    <div className="skeleton" style={{ width:180, height:12 }} />
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : members.length === 0 ? (
             <div className="empty-state" style={{ padding:'40px 0' }}>
               <Users size={48}/>
@@ -57,21 +67,26 @@ export default function FamilyPage() {
             </div>
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
-              {members.map(m => (
-                <div key={m._id} style={{ display:'flex', alignItems:'center', gap:14, padding:'14px', borderBottom:'1px solid var(--border)' }}>
-                  <div className="avatar avatar-md" style={{ fontSize:18, background:'var(--primary-bg)' }}>
-                    {m.avatar_url ? <img src={m.avatar_url} alt={m.name} style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}}/> : '👤'}
+              {members.map(m => {
+                const user = m.user_id;
+                const isAdmin = m.role === 'ADMIN';
+                if (!user) return null;
+                return (
+                  <div key={m._id} style={{ display:'flex', alignItems:'center', gap:14, padding:'14px', borderBottom:'1px solid var(--border)' }}>
+                    <div className="avatar avatar-md" style={{ fontSize:18, background:'var(--primary-bg)' }}>
+                      {user.profile?.avatar_url ? <img src={user.profile.avatar_url} alt={user.profile.full_name || user.email} style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}}/> : '👤'}
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontWeight:700, fontSize:14 }}>{user.profile?.full_name || user.email}</div>
+                      <div style={{ fontSize:12, color:'var(--text-3)' }}>{user.email}</div>
+                    </div>
+                    <span className={`chip ${isAdmin ? 'chip-red' : 'chip-blue'}`}>{isAdmin ? 'Chủ sở hữu' : 'Thành viên'}</span>
+                    {!isAdmin && (
+                      <button className="icon-btn" onClick={() => handleRemove(user._id)}><Trash2 size={15} style={{color:'var(--primary)'}}/></button>
+                    )}
                   </div>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:700, fontSize:14 }}>{m.profile?.full_name || m.email}</div>
-                    <div style={{ fontSize:12, color:'var(--text-3)' }}>{m.email}</div>
-                  </div>
-                  <span className={`chip ${m.role==='OWNER'?'chip-red':'chip-blue'}`}>{m.role==='OWNER'?'Chủ sở hữu':'Thành viên'}</span>
-                  {m.role !== 'OWNER' && (
-                    <button className="icon-btn" onClick={() => handleRemove(m._id)}><Trash2 size={15} style={{color:'var(--primary)'}}/></button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

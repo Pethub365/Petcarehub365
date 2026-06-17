@@ -400,3 +400,10 @@ tbody tr:last-child td { border-bottom: none; }
   .grid-3 { grid-template-columns: 1fr; }
   .grid-4 { grid-template-columns: 1fr; }
 }
+
+.skeleton {
+  background: #e2e8f0;
+  border-radius: var(--radius-sm);
+  animation: pulse 1.5s infinite ease-in-out;
+  display: block;
+}

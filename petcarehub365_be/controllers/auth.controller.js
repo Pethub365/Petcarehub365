@@ -26,21 +26,29 @@ const generateTokens = (userId, sessionId) => {
 };
 
 exports.register = catchAsync(async (req, res) => {
-    const { email, password, full_name } = req.body;
+    const { email, password, username, full_name } = req.body;
 
     const exists = await User.isEmailTaken(email);
     if (exists) {
         throw new ApiError(httpStatus.CONFLICT, 'Email already taken');
     }
 
+    if (username) {
+        const usernameExists = await User.findOne({ username });
+        if (usernameExists) {
+            throw new ApiError(httpStatus.CONFLICT, 'Username already taken');
+        }
+    }
+
     const password_hash = await bcrypt.hash(password, 12);
 
     const user = await User.create({
         email,
+        username: username || undefined,
         password_hash,
         status: 'ACTIVE',
         is_email_verified: true,
-        profile: { full_name },
+        profile: { full_name: full_name || username || '' },
     });
 
     res.status(httpStatus.CREATED).json({

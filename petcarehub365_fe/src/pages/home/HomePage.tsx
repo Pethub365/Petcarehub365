@@ -35,6 +35,12 @@ export default function HomePage() {
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    if (user?.email?.toLowerCase().includes('admin')) {
+      navigate('/admin/stats', { replace: true });
+    }
+  }, [user, navigate]);
+
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
@@ -80,7 +86,72 @@ export default function HomePage() {
       </div>
 
       {loading ? (
-        <div className="page-loader"><div className="spinner spinner-lg" /></div>
+        <div>
+          {/* Skeleton Stats row */}
+          <div className="grid grid-4" style={{ marginBottom: 24 }}>
+            {[1,2,3,4].map(i => (
+              <div key={i} className="stat-card" style={{ height: 114 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
+                  <div className="skeleton" style={{ width:40, height:40, borderRadius:10 }} />
+                  <div className="skeleton" style={{ width:100, height:16 }} />
+                </div>
+                <div className="skeleton" style={{ width:60, height:32, marginBottom:8 }} />
+                <div className="skeleton" style={{ width:80, height:14 }} />
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 360px', gap:24, alignItems:'start' }}>
+            {/* LEFT: Pets + Quests */}
+            <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+              <div className="card" style={{ height: 150 }}>
+                <div className="skeleton" style={{ width:150, height:20, marginBottom:16 }} />
+                <div style={{ display:'flex', gap:16 }}>
+                  {[1,2,3].map(i => (
+                    <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8 }}>
+                      <div className="skeleton" style={{ width:64, height:64, borderRadius:'50%' }} />
+                      <div className="skeleton" style={{ width:50, height:12 }} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="card">
+                <div className="skeleton" style={{ width:180, height:20, marginBottom:20 }} />
+                <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                  {[1,2,3].map(i => (
+                    <div key={i} style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', border:'1px solid var(--border)', borderRadius:'var(--radius)' }}>
+                      <div className="skeleton" style={{ width:44, height:44, borderRadius:12 }} />
+                      <div style={{ flex:1 }}>
+                        <div className="skeleton" style={{ width:'40%', height:16, marginBottom:6 }} />
+                        <div className="skeleton" style={{ width:'70%', height:12 }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            {/* RIGHT: Level + Quick Actions */}
+            <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+              <div className="card" style={{ height: 130 }}>
+                <div className="skeleton" style={{ width:100, height:14, marginBottom:8 }} />
+                <div className="skeleton" style={{ width:120, height:32, marginBottom:12 }} />
+                <div className="skeleton" style={{ width:'100%', height:8, borderRadius:4 }} />
+              </div>
+              <div className="card">
+                <div className="skeleton" style={{ width:120, height:18, marginBottom:16 }} />
+                {[1,2,3,4].map(i => (
+                  <div key={i} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid var(--border)' }}>
+                    <div className="skeleton" style={{ width:40, height:40, borderRadius:10 }} />
+                    <div style={{ flex:1 }}>
+                      <div className="skeleton" style={{ width:80, height:14, marginBottom:6 }} />
+                      <div className="skeleton" style={{ width:120, height:10 }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       ) : pets.length === 0 ? (
         <div className="empty-state" style={{ marginTop: 60 }}>
           <div style={{ fontSize: 80, marginBottom: 20 }}>🐾</div>
@@ -272,7 +343,7 @@ export default function HomePage() {
                   { icon:'✅', label:'Nhiệm vụ', sub:`${completedCount}/${quests.length} hoàn thành`, to:'/missions', bg:'#E1F0FF' },
                   { icon:'❤️', label:'Sức khỏe', sub:'Theo dõi sức khỏe', to:'/health', bg:'#E8F8EF' },
                   { icon:'🏆', label:'Bảng xếp hạng', sub:'Xem thứ hạng', to:'/ranks', bg:'#FFF8E1' },
-                  { icon:'🛒', label:'Cửa hàng', sub:'Mua sắm cho pet', to:'/shop', bg:'#F3E5F5' },
+                  { icon:'💳', label:'Mua gói', sub:'Nâng cấp VIP', to:'/settings/subscription', bg:'#F3E5F5' },
                   { icon:'🌟', label:'Thành tích', sub:'Huy hiệu & danh hiệu', to:'/achievements', bg:'var(--primary-bg)' },
                 ].map(item => (
                   <button key={item.to} onClick={() => navigate(item.to)}

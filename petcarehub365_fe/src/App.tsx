@@ -12,8 +12,6 @@ import PetDetailPage from './pages/pets/PetDetailPage';
 import MissionDetailPage from './pages/missions/MissionDetailPage';
 import HealthDashboardPage from './pages/health/HealthDashboardPage';
 import RanksPage from './pages/ranks/RanksPage';
-import ShopPage from './pages/shop/ShopPage';
-import CheckoutPage from './pages/shop/CheckoutPage';
 import NotificationsPage from './pages/notifications/NotificationsPage';
 import SettingsPage from './pages/settings/SettingsPage';
 import ProfileEditPage from './pages/settings/ProfileEditPage';
@@ -22,6 +20,7 @@ import SubscriptionPlansPage from './pages/settings/SubscriptionPlansPage';
 import AchievementsPage from './pages/achievements/AchievementsPage';
 import FamilyPage from './pages/family/FamilyPage';
 import PetSetupPage from './pages/pets/PetSetupPage';
+import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import './index.css';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -53,11 +52,11 @@ function AppRoutes() {
         <Route path="missions" element={<MissionDetailPage />} />
         <Route path="health" element={<HealthDashboardPage />} />
         <Route path="ranks" element={<RanksPage />} />
-        <Route path="shop" element={<ShopPage />} />
-        <Route path="checkout" element={<CheckoutPage />} />
+        <Route path="shop" element={<Navigate to="/settings/subscription" replace />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="achievements" element={<AchievementsPage />} />
         <Route path="family" element={<FamilyPage />} />
+        <Route path="admin/stats" element={<AdminDashboardPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="settings/profile" element={<ProfileEditPage />} />
         <Route path="settings/password" element={<ChangePasswordPage />} />

@@ -42,7 +42,40 @@ export default function PetsPage() {
       </div>
 
       {loading ? (
-        <div className="page-loader"><div className="spinner spinner-lg" /></div>
+        <div className="grid grid-3">
+          {[1,2,3].map(i => (
+            <div key={i} className="card" style={{ height: 266, display:'flex', flexDirection:'column', justifyContent:'space-between' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                  <div className="skeleton" style={{ width:64, height:64, borderRadius:'50%' }} />
+                  <div>
+                    <div className="skeleton" style={{ width:100, height:16, marginBottom:6 }} />
+                    <div className="skeleton" style={{ width:80, height:12 }} />
+                  </div>
+                </div>
+              </div>
+              <div style={{ display:'flex', gap:12, marginBottom:16 }}>
+                {[1,2,3].map(j => (
+                  <div key={j} className="skeleton" style={{ flex:1, height:58, borderRadius:10 }} />
+                ))}
+              </div>
+              <div style={{ marginBottom:14 }}>
+                <div className="skeleton" style={{ width:'100%', height:14 }} />
+              </div>
+              <div style={{ display:'flex', gap:8, marginTop:14 }}>
+                <div className="skeleton" style={{ flex:1, height:34 }} />
+                <div className="skeleton" style={{ flex:1, height:34 }} />
+              </div>
+            </div>
+          ))}
+          <div
+            className="card"
+            style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12, minHeight:200, border:'2px dashed var(--border)', background:'transparent' }}
+          >
+            <div className="skeleton" style={{ width:56, height:56, borderRadius:16 }} />
+            <div className="skeleton" style={{ width:120, height:16 }} />
+          </div>
+        </div>
       ) : pets.length === 0 ? (
         <div className="empty-state" style={{ marginTop: 60 }}>
           <PawPrint size={64} />

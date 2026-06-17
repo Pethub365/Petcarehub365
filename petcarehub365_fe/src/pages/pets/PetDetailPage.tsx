@@ -12,6 +12,8 @@ export default function PetDetailPage() {
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState<any>({});
+  const [avatar, setAvatar] = useState<File | null>(null);
+  const [preview, setPreview] = useState('');
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
 
@@ -30,15 +32,35 @@ export default function PetDetailPage() {
     load();
   }, [id]);
 
+  const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatar(file);
+    setPreview(URL.createObjectURL(file));
+  };
+
   const handleSave = async () => {
     setSaving(true);
-    const fd = new FormData();
-    Object.entries(form).forEach(([k, v]) => fd.append(k, String(v)));
-    await petApi.updatePet(id!, fd);
-    setSaving(false);
-    setEditMode(false);
-    setMsg('Đã lưu thành công!');
-    setTimeout(() => setMsg(''), 3000);
+    try {
+      const fd = new FormData();
+      Object.entries(form).forEach(([k, v]) => fd.append(k, String(v)));
+      if (avatar) {
+        fd.append('avatar', avatar);
+      }
+      const res = await petApi.updatePet(id!, fd) as any;
+      if (res?.success) {
+        setPet(res.data.pet);
+        setAvatar(null);
+        setPreview('');
+        setEditMode(false);
+        setMsg('Đã lưu thành công!');
+        setTimeout(() => setMsg(''), 3000);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) return <div className="page-loader"><div className="spinner spinner-lg" /></div>;
@@ -54,7 +76,14 @@ export default function PetDetailPage() {
       <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:24 }}>
         <button className="icon-btn" onClick={() => navigate('/pets')}><ArrowLeft size={18} /></button>
         <h1 style={{ fontSize:22, fontWeight:800 }}>{pet.name}</h1>
-        <button className="btn btn-outline btn-sm" style={{ marginLeft:'auto' }} onClick={() => setEditMode(!editMode)}>
+        <button className="btn btn-outline btn-sm" style={{ marginLeft:'auto' }} onClick={() => {
+          if (editMode) {
+            setAvatar(null);
+            setPreview('');
+            setForm({ name: pet.name, breed: pet.breed || '', weight: pet.weight || '', age: pet.age || '' });
+          }
+          setEditMode(!editMode);
+        }}>
           <Edit2 size={14} /> {editMode ? 'Huỷ' : 'Chỉnh sửa'}
         </button>
       </div>
@@ -65,11 +94,35 @@ export default function PetDetailPage() {
         {/* Left: avatar + info */}
         <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
           <div className="card" style={{ textAlign:'center' }}>
-            <div className="avatar avatar-xl" style={{ margin:'0 auto 16px', fontSize:40, background:'var(--primary-bg)' }}>
-              {pet.avatar_url
-                ? <img src={pet.avatar_url} alt={pet.name} style={{ width:'100%', height:'100%', objectFit:'cover', borderRadius:'50%' }} />
-                : '🐾'}
-            </div>
+            {editMode ? (
+              <div style={{ textAlign:'center', marginBottom:20 }}>
+                <label style={{ cursor:'pointer' }}>
+                  <div className="avatar avatar-xl" style={{
+                    margin:'0 auto 12px', fontSize:40, background:'var(--primary-bg)',
+                    border:'2px dashed var(--primary)', borderRadius:'50%', display:'flex',
+                    alignItems:'center', justifyContent:'center', overflow:'hidden'
+                  }}>
+                    {preview ? (
+                      <img src={preview} alt="preview" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                    ) : pet.avatar_url ? (
+                      <img src={pet.avatar_url} alt={pet.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                    ) : (
+                      '🐾'
+                    )}
+                  </div>
+                  <input type="file" accept="image/*" onChange={handleImage} style={{ display:'none' }} />
+                  <span style={{ fontSize:13, color:'var(--primary)', fontWeight:600, display:'flex', alignItems:'center', gap:6, justifyContent:'center' }}>
+                    Thay đổi ảnh
+                  </span>
+                </label>
+              </div>
+            ) : (
+              <div className="avatar avatar-xl" style={{ margin:'0 auto 16px', fontSize:40, background:'var(--primary-bg)' }}>
+                {pet.avatar_url
+                  ? <img src={pet.avatar_url} alt={pet.name} style={{ width:'100%', height:'100%', objectFit:'cover', borderRadius:'50%' }} />
+                  : '🐾'}
+              </div>
+            )}
             {editMode ? (
               <div>
                 <div className="form-group"><label className="form-label">Tên</label><input className="form-control" value={form.name} onChange={e => setForm((f:any) => ({...f, name:e.target.value}))} /></div>
