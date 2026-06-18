@@ -8,6 +8,8 @@ const familyApi = {
   getPendingInvitations: () => axiosClient.get('/family/invitations/pending'),
   getSentInvitations: () => axiosClient.get('/family/invitations/sent'),
   removeMember: (memberUserId: string) => axiosClient.delete(`/family/members/${memberUserId}`),
+  assignQuest: (questId: string, userId: string | null) => axiosClient.put(`/family/quests/${questId}/assign`, { userId }),
+  updateFamilyPets: (petIds: string[]) => axiosClient.put('/family/pets', { pet_ids: petIds }),
 };
 
 export default familyApi;

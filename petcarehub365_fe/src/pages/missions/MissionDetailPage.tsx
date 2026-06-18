@@ -30,7 +30,7 @@ const mapCategoryToShop = (cat: string) => {
 
 export default function MissionDetailPage() {
   const navigate = useNavigate();
-  const { pets, loadingPets, refreshPets } = useAuth();
+  const { user, pets, loadingPets, refreshPets } = useAuth();
   const [selectedPet, setSelectedPet] = useState<any>(null);
   const [quests, setQuests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -336,6 +336,16 @@ export default function MissionDetailPage() {
                         quest.title.includes('Thư giãn')
                       )) && (
                         <span className="chip" style={{ background: '#FFF9E6', color: '#FFB000', border: '1px solid #FFB00033', fontWeight: 700 }}>✨ Cá nhân hóa</span>
+                      )}
+                      {quest.assigned_to && (
+                        <span className="chip" style={{ 
+                          background: (quest.assigned_to._id || quest.assigned_to) === user?._id ? '#E8F8EF' : 'var(--surface2)', 
+                          color: (quest.assigned_to._id || quest.assigned_to) === user?._id ? '#27AE60' : 'var(--text-3)', 
+                          border: (quest.assigned_to._id || quest.assigned_to) === user?._id ? '1px solid #27AE6033' : '1px solid var(--border)', 
+                          fontWeight: 700 
+                        }}>
+                          👤 {(quest.assigned_to._id || quest.assigned_to) === user?._id ? 'Giao cho Bạn' : `Giao cho: ${quest.assigned_to.profile?.full_name || quest.assigned_to.email}`}
+                        </span>
                       )}
                     </div>
                     {!isLocked && (

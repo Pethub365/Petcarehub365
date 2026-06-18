@@ -81,7 +81,7 @@ const ensureDailyQuestsForPet = async (pet, date = new Date(), reqTimezone = 'As
             $gte: startOfDay,
             $lte: endOfDay
         }
-    }).populate('source_knowledge_id');
+    }).populate('source_knowledge_id').populate('assigned_to', 'email profile');
 
     // Lấy thông tin gói cước của User sở hữu thú cưng
     const owner = await User.findById(pet.owner_id);
@@ -94,7 +94,29 @@ const ensureDailyQuestsForPet = async (pet, date = new Date(), reqTimezone = 'As
     const hasActiveVipStatus = owner && owner.is_vip &&
         (!owner.vip_expires_at || new Date(owner.vip_expires_at) > new Date());
 
-    const isVip = !!(hasActiveVipPlan || hasActiveVipStatus);
+    // Kiểm tra xem thú cưng có thuộc một nhóm gia đình nào mà có ít nhất một thành viên sở hữu VIP hay không
+    let isFamilyVip = false;
+    try {
+        const { FamilyGroup } = require('../models');
+        const familyGroup = await FamilyGroup.findOne({ pet_ids: pet._id });
+        if (familyGroup) {
+            const memberIds = familyGroup.members.map(m => m.user_id);
+            const vipMembers = await User.find({
+                _id: { $in: memberIds },
+                $or: [
+                    { subscription_plan: 'VIP', $or: [{ subscription_expires_at: null }, { subscription_expires_at: { $gt: new Date() } }] },
+                    { is_vip: true, $or: [{ vip_expires_at: null }, { vip_expires_at: { $gt: new Date() } }] }
+                ]
+            });
+            if (vipMembers.length > 0) {
+                isFamilyVip = true;
+            }
+        }
+    } catch (err) {
+        console.error('Lỗi khi kiểm tra VIP của nhóm gia đình:', err);
+    }
+
+    const isVip = !!(hasActiveVipPlan || hasActiveVipStatus || isFamilyVip);
 
     // Nếu đã có nhiệm vụ nhưng là của tài khoản FREE, nay chủ nuôi đã nâng cấp VIP -> Tiến hành xóa để sinh nhiệm vụ VIP mới
     if (quests.length > 0 && isVip) {
@@ -363,7 +385,7 @@ const ensureDailyQuestsForPet = async (pet, date = new Date(), reqTimezone = 'As
                 $gte: startOfDay,
                 $lte: endOfDay
             }
-        }).populate('source_knowledge_id');
+        }).populate('source_knowledge_id').populate('assigned_to', 'email profile');
     }
 
     // Tự động kiểm tra và chuyển các nhiệm vụ PENDING quá hạn thành MISSED
@@ -394,7 +416,7 @@ const ensureDailyQuestsForPet = async (pet, date = new Date(), reqTimezone = 'As
                 $gte: startOfDay,
                 $lte: endOfDay
             }
-        }).populate('source_knowledge_id');
+        }).populate('source_knowledge_id').populate('assigned_to', 'email profile');
     }
 
     // Lọc chỉ trả về các nhiệm vụ đã đến giờ hiển thị

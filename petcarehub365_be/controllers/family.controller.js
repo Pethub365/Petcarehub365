@@ -7,7 +7,7 @@ const sendEmail = require('../utils/sendEmail');
 // 1. Get the family group the user belongs to
 exports.getFamilyGroup = catchAsync(async (req, res) => {
   const group = await FamilyGroup.findOne({ 'members.user_id': req.user._id })
-    .populate('members.user_id', 'email profile.full_name profile.avatar_url')
+    .populate('members.user_id', 'email profile')
     .populate('pet_ids');
 
   res.status(httpStatus.OK).json({
@@ -56,7 +56,7 @@ exports.createFamilyGroup = catchAsync(async (req, res) => {
   });
 
   const populatedGroup = await FamilyGroup.findById(group._id)
-    .populate('members.user_id', 'email profile.full_name profile.avatar_url')
+    .populate('members.user_id', 'email profile')
     .populate('pet_ids');
 
   res.status(httpStatus.CREATED).json({

@@ -108,8 +108,17 @@ export default function PetSetupPage() {
 
       const res = await petApi.createPet(fd) as any;
       if (res?.success) {
+        const newPet = res.data?.pet;
+        if (newPet?._id) {
+          localStorage.setItem('selectedPetId', newPet._id);
+        }
         await refreshPets();
-        navigate('/pets');
+        navigate('/pets/setup/analyzing', {
+          state: {
+            petName: newPet?.name || form.name,
+            avatarUrl: preview
+          }
+        });
       } else {
         setError(res?.message || 'Tạo thú cưng thất bại');
       }

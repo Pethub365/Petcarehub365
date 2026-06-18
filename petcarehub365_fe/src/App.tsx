@@ -23,6 +23,7 @@ const SubscriptionPlansPage = lazy(() => import('./pages/settings/SubscriptionPl
 const AchievementsPage = lazy(() => import('./pages/achievements/AchievementsPage'));
 const FamilyPage = lazy(() => import('./pages/family/FamilyPage'));
 const PetSetupPage = lazy(() => import('./pages/pets/PetSetupPage'));
+const AiAnalyzingPage = lazy(() => import('./pages/pets/AiAnalyzingPage'));
 const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'));
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -50,6 +51,7 @@ function AppRoutes() {
         <Route index element={<HomePage />} />
         <Route path="pets" element={<PetsPage />} />
         <Route path="pets/setup" element={<PetSetupPage />} />
+        <Route path="pets/setup/analyzing" element={<AiAnalyzingPage />} />
         <Route path="pets/:id" element={<PetDetailPage />} />
         <Route path="missions" element={<MissionDetailPage />} />
         <Route path="health" element={<HealthDashboardPage />} />

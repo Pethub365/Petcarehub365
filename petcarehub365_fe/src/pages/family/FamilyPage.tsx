@@ -1,16 +1,25 @@
 import { useState, useEffect } from 'react';
-import { Users, UserPlus, Trash2, Mail, Home, ShieldAlert, Check, RefreshCw } from 'lucide-react';
+import { Users, UserPlus, Trash2, Mail, Home, ShieldAlert, Check, RefreshCw, Settings, ClipboardList, PawPrint, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import familyApi from '../../api/familyApi';
+import dailyQuestApi from '../../api/dailyQuestApi';
 
 export default function FamilyPage() {
-  const { user } = useAuth();
+  const { user, pets } = useAuth();
   const [familyGroup, setFamilyGroup] = useState<any>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [pendingInvites, setPendingInvites] = useState<any[]>([]);
   const [sentInvites, setSentInvites] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Task Assignment & Pets Management
+  const [familyQuests, setFamilyQuests] = useState<any[]>([]);
+  const [loadingQuests, setLoadingQuests] = useState(false);
+  const [managePetsModal, setManagePetsModal] = useState(false);
+  const [selectedPetIds, setSelectedPetIds] = useState<string[]>([]);
+  const [savingPets, setSavingPets] = useState(false);
+  const [assigningQuestId, setAssigningQuestId] = useState<string | null>(null);
 
   // Invitation Form
   const [email, setEmail] = useState('');
@@ -33,6 +42,34 @@ export default function FamilyPage() {
         setMembers(res.data.members || []);
         setPendingInvites([]);
 
+        // Populate selectedPetIds
+        const currentPetIds = res.data.pet_ids?.map((p: any) => p._id) || [];
+        setSelectedPetIds(currentPetIds);
+
+        // Fetch daily quests for all family pets in parallel
+        const fPets = res.data.pet_ids || [];
+        if (fPets.length > 0) {
+          if (!isBackground) setLoadingQuests(true);
+          const questPromises = fPets.map(async (pet: any) => {
+            try {
+              const qRes = await dailyQuestApi.getDailyQuests(pet._id) as any;
+              if (qRes?.success) {
+                return qRes.data.quests.map((q: any) => ({
+                  ...q,
+                  petName: pet.name,
+                }));
+              }
+            } catch (err) {
+              console.error(`Error loading quests for pet ${pet._id}:`, err);
+            }
+            return [];
+          });
+          const allQuestsArray = await Promise.all(questPromises);
+          setFamilyQuests(allQuestsArray.flat());
+        } else {
+          setFamilyQuests([]);
+        }
+
         // Get sent invites if admin
         const isAdmin = res.data.members?.some((m: any) => m.user_id?._id === user?._id && m.role === 'ADMIN');
         if (isAdmin) {
@@ -51,6 +88,7 @@ export default function FamilyPage() {
         setFamilyGroup(null);
         setMembers([]);
         setSentInvites([]);
+        setFamilyQuests([]);
         // Get pending invites for this user
         const inviteRes = await familyApi.getPendingInvitations() as any;
         if (inviteRes?.success) {
@@ -61,8 +99,10 @@ export default function FamilyPage() {
       setFamilyGroup(null);
       setMembers([]);
       setSentInvites([]);
+      setFamilyQuests([]);
     } finally {
       if (!isBackground) setLoading(false);
+      setLoadingQuests(false);
     }
   };
 
@@ -167,6 +207,52 @@ export default function FamilyPage() {
     }
   };
 
+  const handleUpdateFamilyPets = async () => {
+    try {
+      setSavingPets(true);
+      setErrorMsg('');
+      const res = await familyApi.updateFamilyPets(selectedPetIds) as any;
+      if (res?.success) {
+        setManagePetsModal(false);
+        await load();
+      }
+    } catch (err: any) {
+      setErrorMsg(err.response?.data?.message || 'Không thể cập nhật danh sách thú cưng.');
+    } finally {
+      setSavingPets(false);
+    }
+  };
+
+  const handleAssignQuest = async (questId: string, memberId: string | null) => {
+    try {
+      setAssigningQuestId(questId);
+      setErrorMsg('');
+      const res = await familyApi.assignQuest(questId, memberId) as any;
+      if (res?.success) {
+        // Optimistically update or background reload
+        setFamilyQuests(prev => prev.map(q => {
+          if (q._id === questId) {
+            // Find member details
+            const memberObj = members.find(m => m.user_id?._id === memberId);
+            return {
+              ...q,
+              assigned_to: memberId ? {
+                _id: memberId,
+                email: memberObj?.user_id?.email,
+                profile: memberObj?.user_id?.profile
+              } : null
+            };
+          }
+          return q;
+        }));
+      }
+    } catch (err: any) {
+      setErrorMsg(err.response?.data?.message || 'Không thể phân công công việc.');
+    } finally {
+      setAssigningQuestId(null);
+    }
+  };
+
   const isFamilyAdmin = familyGroup?.members?.some(
     (m: any) => m.user_id?._id === user?._id && m.role === 'ADMIN'
   );
@@ -214,48 +300,168 @@ export default function FamilyPage() {
         // USER IS ALREADY IN A FAMILY GROUP
         // ==========================================
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24, alignItems: 'start' }}>
-          {/* Members List */}
-          <div className="card">
-            <div className="section-title" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Users size={18} />
-                <span>Thành viên gia đình ({members.length})</span>
+          {/* Left Column */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            {/* Family Pets Card */}
+            <div className="card">
+              <div className="section-title" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <PawPrint size={18} />
+                  <span>Thú cưng gia đình ({familyGroup.pet_ids?.length || 0})</span>
+                </div>
+                {isFamilyAdmin && (
+                  <button 
+                    className="btn btn-outline btn-sm"
+                    onClick={() => setManagePetsModal(true)}
+                    style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}
+                  >
+                    <Settings size={14} />
+                    <span>Quản lý</span>
+                  </button>
+                )}
               </div>
-              <button 
-                className="icon-btn" 
-                onClick={() => load(false)} 
-                title="Tải lại danh sách"
-                style={{ padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >
-                <RefreshCw size={16} />
-              </button>
+
+              {(!familyGroup.pet_ids || familyGroup.pet_ids.length === 0) ? (
+                <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-3)' }}>
+                  Chưa chia sẻ thú cưng nào với gia đình.
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
+                  {familyGroup.pet_ids.map((pet: any) => (
+                    <div key={pet._id} className="card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, marginBottom: 0, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                      <div className="avatar avatar-md" style={{ fontSize: 16, flexShrink: 0 }}>
+                        {pet.avatar_url ? (
+                          <img src={pet.avatar_url} alt={pet.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                        ) : '🐾'}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pet.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {pet.species === 'DOG' ? 'Chó' : pet.species === 'CAT' ? 'Mèo' : pet.species} • {pet.breed || 'Không rõ giống'}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {members.map(m => {
-                const memberUser = m.user_id;
-                const isMemberAdmin = m.role === 'ADMIN';
-                if (!memberUser) return null;
-                return (
-                  <div key={m._id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0', borderBottom: '1px solid var(--border)' }}>
-                    <div className="avatar avatar-md" style={{ fontSize: 18, background: 'var(--primary-bg)' }}>
-                      {memberUser.profile?.avatar_url ? (
-                        <img src={memberUser.profile.avatar_url} alt={memberUser.profile.full_name || memberUser.email} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                      ) : '👤'}
+            {/* Members List */}
+            <div className="card">
+              <div className="section-title" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Users size={18} />
+                  <span>Thành viên gia đình ({members.length})</span>
+                </div>
+                <button 
+                  className="icon-btn" 
+                  onClick={() => load(false)} 
+                  title="Tải lại danh sách"
+                  style={{ padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <RefreshCw size={16} />
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {members.map(m => {
+                  const memberUser = m.user_id;
+                  const isMemberAdmin = m.role === 'ADMIN';
+                  if (!memberUser) return null;
+                  return (
+                    <div key={m._id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0', borderBottom: '1px solid var(--border)' }}>
+                      <div className="avatar avatar-md" style={{ fontSize: 18, background: 'var(--primary-bg)' }}>
+                        {memberUser.profile?.avatar_url ? (
+                          <img src={memberUser.profile.avatar_url} alt={memberUser.profile.full_name || memberUser.email} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                        ) : '👤'}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>{memberUser.profile?.full_name || memberUser.email}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{memberUser.email}</div>
+                      </div>
+                      <span className={`chip ${isMemberAdmin ? 'chip-red' : 'chip-blue'}`}>{isMemberAdmin ? 'Chủ sở hữu' : 'Thành viên'}</span>
+                      {!isMemberAdmin && isFamilyAdmin && (
+                        <button className="icon-btn" onClick={() => handleRemove(memberUser._id)} title="Xóa khỏi gia đình">
+                          <Trash2 size={15} style={{ color: 'var(--primary)' }} />
+                        </button>
+                      )}
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>{memberUser.profile?.full_name || memberUser.email}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{memberUser.email}</div>
-                    </div>
-                    <span className={`chip ${isMemberAdmin ? 'chip-red' : 'chip-blue'}`}>{isMemberAdmin ? 'Chủ sở hữu' : 'Thành viên'}</span>
-                    {!isMemberAdmin && isFamilyAdmin && (
-                      <button className="icon-btn" onClick={() => handleRemove(memberUser._id)} title="Xóa khỏi gia đình">
-                        <Trash2 size={15} style={{ color: 'var(--primary)' }} />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Task Assignment Card */}
+            <div className="card">
+              <div className="section-title" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <ClipboardList size={18} />
+                <span>Phân công công việc</span>
+              </div>
+              <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 16 }}>Giao nhiệm vụ chăm sóc thú cưng hàng ngày cho các thành viên trong gia đình.</p>
+
+              {loadingQuests ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: 20 }}>
+                  <div className="spinner" />
+                </div>
+              ) : familyQuests.length === 0 ? (
+                <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-3)' }}>
+                  Không tìm thấy nhiệm vụ nào cần phân công cho hôm nay.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {familyQuests.map((quest: any) => {
+                    const isCompleted = quest.status === 'COMPLETED';
+                    const categoryMap: Record<string, string> = {
+                      NUTRITION: '🍽️',
+                      DAILY_ROUTINE: '🚶',
+                      HEALTH_CARE: '❤️',
+                      TRAINING: '✂️'
+                    };
+                    const emoji = categoryMap[quest.category] || '📋';
+                    const currentAssignee = quest.assigned_to?._id || quest.assigned_to || '';
+
+                    return (
+                      <div key={quest._id} className="card" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 14, marginBottom: 0, border: '1px solid var(--border)', background: isCompleted ? 'rgba(39, 174, 96, 0.05)' : 'var(--surface)' }}>
+                        <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
+                          {emoji}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                            <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{quest.title}</span>
+                            <span className="chip chip-blue" style={{ fontSize: 10, padding: '1px 5px' }}>{quest.petName}</span>
+                            {isCompleted && <span className="chip chip-green" style={{ fontSize: 10, padding: '1px 5px' }}>Đã xong ✓</span>}
+                          </div>
+                          <div style={{ fontSize: 12, color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {quest.description}
+                          </div>
+                        </div>
+
+                        {/* Assign Select */}
+                        <div style={{ flexShrink: 0 }}>
+                          <select
+                            className="form-control"
+                            style={{ padding: '4px 8px', fontSize: 12, height: 'auto', width: 150 }}
+                            value={currentAssignee}
+                            disabled={assigningQuestId === quest._id}
+                            onChange={(e) => handleAssignQuest(quest._id, e.target.value || null)}
+                          >
+                            <option value="">Chưa phân công</option>
+                            {members.map((m: any) => {
+                              const mUser = m.user_id;
+                              if (!mUser) return null;
+                              return (
+                                <option key={mUser._id} value={mUser._id}>
+                                  {mUser.profile?.full_name || mUser.email}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
@@ -433,6 +639,87 @@ export default function FamilyPage() {
                 </Link>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Manage Pets Modal */}
+      {managePetsModal && (
+        <div className="modal-overlay" onClick={() => setManagePetsModal(false)}>
+          <div className="modal" style={{ position: 'relative', maxWidth: 460, width: '90%', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setManagePetsModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>
+              <X size={16} />
+            </button>
+            
+            <h3 className="modal-title" style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', marginBottom: 10 }}>
+              Quản lý thú cưng gia đình
+            </h3>
+            
+            <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 20, lineHeight: 1.5 }}>
+              Chọn các thú cưng bạn muốn chia sẻ quyền chăm sóc với các thành viên khác trong gia đình.
+            </p>
+
+            {pets.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-3)' }}>
+                Bạn chưa tạo thú cưng nào để chia sẻ.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+                {pets.map((pet: any) => {
+                  const isChecked = selectedPetIds.includes(pet._id);
+                  return (
+                    <label 
+                      key={pet._id} 
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 12, 
+                        padding: 12, 
+                        background: 'var(--surface2)', 
+                        border: '1px solid var(--border)', 
+                        borderRadius: 12, 
+                        cursor: 'pointer' 
+                      }}
+                    >
+                      <input 
+                        type="checkbox" 
+                        checked={isChecked} 
+                        style={{ width: 16, height: 16 }}
+                        onChange={() => {
+                          setSelectedPetIds(prev => 
+                            prev.includes(pet._id) 
+                              ? prev.filter(id => id !== pet._id) 
+                              : [...prev, pet._id]
+                          );
+                        }}
+                      />
+                      <div className="avatar avatar-sm">
+                        {pet.avatar_url ? <img src={pet.avatar_url} alt={pet.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : '🐾'}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13 }}>{pet.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                          {pet.species === 'DOG' ? 'Chó' : pet.species === 'CAT' ? 'Mèo' : pet.species} • {pet.breed || 'Không rõ giống'}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+              <button className="btn btn-outline" onClick={() => setManagePetsModal(false)}>
+                Đóng
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={handleUpdateFamilyPets} 
+                disabled={savingPets || pets.length === 0}
+              >
+                {savingPets ? 'Đang lưu...' : 'Lưu thay đổi'}
+              </button>
+            </div>
           </div>
         </div>
       )}

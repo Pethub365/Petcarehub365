@@ -67,6 +67,12 @@ const dailyQuestSchema = new mongoose.Schema({
   suggested_action: {
       has_product: { type: Boolean, default: false },
       product_query_tag: { type: String, default: null }
+  },
+  // Đánh dấu gói cước đã tạo ra bộ nhiệm vụ này (FREE | VIP)
+  generated_for_plan: {
+      type: String,
+      enum: ['FREE', 'VIP'],
+      default: 'FREE'
   }
 }, {
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
