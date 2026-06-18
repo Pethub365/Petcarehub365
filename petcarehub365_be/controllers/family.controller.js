@@ -157,7 +157,11 @@ exports.inviteMember = catchAsync(async (req, res) => {
 
   res.status(httpStatus.OK).json({
     success: true,
-    message: `Đã gửi mã mời thành viên thành công tới ${invited_email}`
+    message: `Đã gửi mã mời thành viên thành công tới ${invited_email}`,
+    data: {
+      invited_email,
+      inviteCode
+    }
   });
 });
 
@@ -171,10 +175,9 @@ exports.joinFamily = catchAsync(async (req, res) => {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Bạn đã tham gia một nhóm gia đình rồi');
   }
 
-  // Find invitation matching invite code and the logged-in user's email
+  // Find invitation matching invite code (allow any email to join using the code, or matching email)
   const invitation = await FamilyInvitation.findOne({
     token_hash: inviteCode.toUpperCase(),
-    invited_email: req.user.email.toLowerCase(),
     status: 'PENDING',
     expires_at: { $gt: new Date() }
   });
@@ -207,6 +210,9 @@ exports.joinFamily = catchAsync(async (req, res) => {
 
   // Mark invitation as accepted
   invitation.status = 'ACCEPTED';
+  if (invitation.invited_email !== req.user.email.toLowerCase()) {
+    invitation.invited_email = req.user.email.toLowerCase();
+  }
   await invitation.save();
 
   const populatedGroup = await FamilyGroup.findById(group._id)
@@ -357,6 +363,29 @@ exports.removeMember = catchAsync(async (req, res) => {
     success: true,
     message: 'Đã xóa thành viên khỏi nhóm gia đình thành công 🏠',
     data: populatedGroup
+  });
+});
+
+// 9. Get invitations sent by the group (Only ADMIN can see this)
+exports.getSentInvitations = catchAsync(async (req, res) => {
+  const group = await FamilyGroup.findOne({
+    'members.user_id': req.user._id,
+    'members.role': 'ADMIN'
+  });
+
+  if (!group) {
+    throw new ApiError(httpStatus.FORBIDDEN, 'Bạn phải là ADMIN của nhóm gia đình mới có quyền xem lời mời đã gửi');
+  }
+
+  const invitations = await FamilyInvitation.find({
+    group_id: group._id,
+    status: 'PENDING',
+    expires_at: { $gt: new Date() }
+  }).sort({ created_at: -1 });
+
+  res.status(httpStatus.OK).json({
+    success: true,
+    data: invitations
   });
 });
 

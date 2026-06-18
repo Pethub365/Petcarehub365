@@ -86,13 +86,13 @@ const ensureDailyQuestsForPet = async (pet, date = new Date(), reqTimezone = 'As
     // Lấy thông tin gói cước của User sở hữu thú cưng
     const owner = await User.findById(pet.owner_id);
     const ownerPlan = owner ? owner.subscription_plan : 'FREE';
-    
+
     // Kiểm tra xem gói VIP có còn hiệu lực hay không (nếu có hạn thì phải chưa quá hạn)
-    const hasActiveVipPlan = ownerPlan === 'VIP' && 
-                             (!owner.subscription_expires_at || new Date(owner.subscription_expires_at) > new Date());
-                             
-    const hasActiveVipStatus = owner && owner.is_vip && 
-                               (!owner.vip_expires_at || new Date(owner.vip_expires_at) > new Date());
+    const hasActiveVipPlan = ownerPlan === 'VIP' &&
+        (!owner.subscription_expires_at || new Date(owner.subscription_expires_at) > new Date());
+
+    const hasActiveVipStatus = owner && owner.is_vip &&
+        (!owner.vip_expires_at || new Date(owner.vip_expires_at) > new Date());
 
     const isVip = !!(hasActiveVipPlan || hasActiveVipStatus);
 
@@ -279,7 +279,7 @@ const ensureDailyQuestsForPet = async (pet, date = new Date(), reqTimezone = 'As
                         { 'target_audience.species': 'ALL' }
                     ]
                 });
-                
+
                 if (breedMatchCount > 0) {
                     const randomIndex = Math.floor(Math.random() * breedMatchCount);
                     knowledge = await VetKnowledge.findOne({
@@ -303,7 +303,7 @@ const ensureDailyQuestsForPet = async (pet, date = new Date(), reqTimezone = 'As
                         { 'target_audience.species': 'ALL' }
                     ]
                 });
-                
+
                 if (genericMatchCount > 0) {
                     const randomIndex = Math.floor(Math.random() * genericMatchCount);
                     knowledge = await VetKnowledge.findOne({
@@ -369,9 +369,9 @@ const ensureDailyQuestsForPet = async (pet, date = new Date(), reqTimezone = 'As
     // Tự động kiểm tra và chuyển các nhiệm vụ PENDING quá hạn thành MISSED
     const now = new Date();
     const isToday = now.getFullYear() === startOfDay.getFullYear() &&
-                    now.getMonth() === startOfDay.getMonth() &&
-                    now.getDate() === startOfDay.getDate();
-    
+        now.getMonth() === startOfDay.getMonth() &&
+        now.getDate() === startOfDay.getDate();
+
     // Nếu là ngày cũ, giả định giờ hiện tại là 24 để đánh dấu MISSED hết các quest PENDING quá hạn
     const currentHour = isToday ? now.getHours() : 24;
     let hasUpdates = false;

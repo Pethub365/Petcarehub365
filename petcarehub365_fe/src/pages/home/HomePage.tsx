@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SquareCheck, Plus, Lock, ChevronRight, Heart } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import petApi from '../../api/petApi';
 import dailyQuestApi from '../../api/dailyQuestApi';
 
 const CATEGORY_ICON: Record<string, { icon: string; color: string; bg: string }> = {
@@ -22,13 +21,12 @@ function getCountdown(unlocksAt: string) {
 }
 
 export default function HomePage() {
-  const { user } = useAuth();
+  const { user, pets, loadingPets, refreshPets } = useAuth();
   const navigate = useNavigate();
-  const [pets, setPets] = useState<any[]>([]);
   const [selectedPet, setSelectedPet] = useState<any>(null);
   const [quests, setQuests] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [, setTick] = useState(0);
+  const loading = loadingPets;
 
   useEffect(() => {
     const timer = setInterval(() => setTick(t => t + 1), 1000);
@@ -41,34 +39,43 @@ export default function HomePage() {
     }
   }, [user, navigate]);
 
-  const loadData = useCallback(async () => {
+  useEffect(() => {
+    refreshPets();
+  }, []);
+
+  const loadQuests = useCallback(async (petId: string) => {
     try {
-      setLoading(true);
-      const res = await petApi.getPets() as any;
-      if (res?.success) {
-        const list = res.data.pets || [];
-        setPets(list);
-        if (list.length > 0) {
-          const saved = localStorage.getItem('selectedPetId');
-          const pet = list.find((p: any) => p._id === saved) || list[0];
-          setSelectedPet(pet);
-          localStorage.setItem('selectedPetId', pet._id);
-          const qRes = await dailyQuestApi.getDailyQuests(pet._id) as any;
-          if (qRes?.success) setQuests(qRes.data.quests || []);
-        }
+      const qRes = await dailyQuestApi.getDailyQuests(petId) as any;
+      if (qRes?.success) {
+        setQuests(qRes.data.quests || []);
       }
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      console.error('Error loading quests:', err);
     }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    if (pets.length > 0) {
+      const saved = localStorage.getItem('selectedPetId');
+      const pet = pets.find((p: any) => p._id === saved) || pets[0];
+      setSelectedPet(pet);
+      localStorage.setItem('selectedPetId', pet._id);
+    } else {
+      setSelectedPet(null);
+      setQuests([]);
+    }
+  }, [pets]);
+
+  useEffect(() => {
+    if (selectedPet?._id) {
+      loadQuests(selectedPet._id);
+    }
+  }, [selectedPet?._id, loadQuests]);
 
   const handleSelectPet = async (pet: any) => {
     setSelectedPet(pet);
     localStorage.setItem('selectedPetId', pet._id);
-    const qRes = await dailyQuestApi.getDailyQuests(pet._id) as any;
-    if (qRes?.success) setQuests(qRes.data.quests || []);
+    await loadQuests(pet._id);
   };
 
   const displayName = user?.profile?.full_name || user?.email?.split('@')[0] || 'Bạn';

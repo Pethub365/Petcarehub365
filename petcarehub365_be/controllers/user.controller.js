@@ -5,7 +5,12 @@ const cloudinary = require('../config/cloudinary');
 const config = require('../config/config');
 
 const isCloudinaryConfigured = () => {
-    return !!(config.cloudinary.cloudName && config.cloudinary.apiKey && config.cloudinary.apiSecret);
+    const { cloudName, apiKey, apiSecret } = config.cloudinary;
+    if (!cloudName || !apiKey || !apiSecret) return false;
+    if (cloudName.includes('your_') || apiKey.includes('your_') || apiSecret.includes('your_')) {
+        return false;
+    }
+    return true;
 };
 
 const fileToBase64DataURI = (file) => {
@@ -19,7 +24,7 @@ exports.getProfile = catchAsync(async (req, res) => {
 });
 
 exports.updateProfile = catchAsync(async (req, res) => {
-    const { full_name, phone, gender, dob, bio } = req.body;
+    const { full_name, phone, gender, dob, bio, address } = req.body;
     const user = await User.findById(req.user._id);
 
     // Handle avatar upload
@@ -46,6 +51,7 @@ exports.updateProfile = catchAsync(async (req, res) => {
     if (gender !== undefined) user.profile.gender = gender;
     if (dob !== undefined) user.profile.dob = dob;
     if (bio !== undefined) user.profile.bio = bio;
+    if (address !== undefined) user.profile.address = address;
 
     await user.save();
 

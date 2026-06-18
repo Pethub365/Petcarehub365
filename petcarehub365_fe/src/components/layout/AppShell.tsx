@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import {
   Home, PawPrint, CheckSquare, Heart, Trophy, CreditCard,
-  Bell, Settings, Users, Star, Menu, X, LogOut, ChevronRight, BarChart2
+  Bell, Settings, Users, Star, LogOut, ChevronRight, BarChart2
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -129,9 +129,6 @@ export default function AppShell() {
       {/* Main */}
       <div className="main-content">
         <header className="topbar">
-          <button className="icon-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
-          </button>
           <div className="topbar-title" />
           <div className="topbar-actions">
             {!isOnlyAdmin && (

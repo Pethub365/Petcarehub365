@@ -11,7 +11,7 @@ export default function NotificationsPage() {
     load();
   }, []);
 
-  const ICONS: Record<string, string> = { QUEST:'✅', HEALTH:'❤️', ACHIEVEMENT:'🏆', SYSTEM:'🔔', SHOP:'🛒' };
+  const ICONS: Record<string, string> = { QUEST:'✅', HEALTH:'❤️', ACHIEVEMENT:'🏆', SYSTEM:'🔔', SHOP:'🛒', VACCINE_REMINDER:'💉', SUBSCRIPTION_EXPIRING:'⏰', SUBSCRIPTION:'🌟' };
 
   return (
     <div>
@@ -52,7 +52,7 @@ export default function NotificationsPage() {
                   <div style={{ fontWeight: n.isRead ? 500 : 700, fontSize:14, color:'var(--text)', marginBottom:3 }}>{n.title || n.message}</div>
                   {n.body && <div style={{ fontSize:13, color:'var(--text-3)' }}>{n.body}</div>}
                   <div style={{ fontSize:11, color:'var(--text-3)', marginTop:6, fontWeight:500 }}>
-                    {new Date(n.createdAt).toLocaleString('vi-VN')}
+                    {new Date(n.created_at || n.createdAt).toLocaleString('vi-VN')}
                   </div>
                 </div>
                 {!n.isRead && (

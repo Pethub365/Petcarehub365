@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Upload, ShieldAlert, Heart, TrendingUp, TrendingDown, AlertCircle, Sparkles } from 'lucide-react';
 import petApi from '../../api/petApi';
+import { useAuth } from '../../contexts/AuthContext';
 
 const SPECIES = ['dog', 'cat', 'other'];
 const GENDERS = [{ value: 'MALE', label: 'Đực' }, { value: 'FEMALE', label: 'Cái' }, { value: 'UNKNOWN', label: 'Không rõ' }];
@@ -19,6 +20,7 @@ const HEALTH_STATUSES = [
 
 export default function PetSetupPage() {
   const navigate = useNavigate();
+  const { refreshPets } = useAuth();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     name: '',
@@ -106,6 +108,7 @@ export default function PetSetupPage() {
 
       const res = await petApi.createPet(fd) as any;
       if (res?.success) {
+        await refreshPets();
         navigate('/pets');
       } else {
         setError(res?.message || 'Tạo thú cưng thất bại');

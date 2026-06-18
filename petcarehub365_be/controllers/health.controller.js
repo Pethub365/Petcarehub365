@@ -1,7 +1,7 @@
 const httpStatus = require('http-status');
 const catchAsync = require('../utils/catchAsync');
 const ApiError = require('../utils/ApiError');
-const { HealthLog, Vaccine, Pet } = require('../models');
+const { HealthLog, Vaccine, Pet, Notification } = require('../models');
 
 // 1. Get health logs for a specific pet
 exports.getHealthLogs = catchAsync(async (req, res) => {
@@ -207,4 +207,44 @@ exports.deleteVaccine = catchAsync(async (req, res) => {
     message: 'Vaccine deleted successfully'
   });
 });
+
+// 7. Background helper: Check and notify users about upcoming vaccine reminders (next 3 days)
+exports.checkVaccineReminders = async () => {
+  const now = new Date();
+  const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+
+  // Find all vaccines where next_due_date is between now and 3 days from now
+  const upcomingVaccines = await Vaccine.find({
+    next_due_date: { $gt: now, $lte: threeDaysFromNow }
+  }).populate('pet_id');
+
+  for (const vac of upcomingVaccines) {
+    if (!vac.pet_id) continue;
+    const pet = vac.pet_id;
+    const ownerId = pet.owner_id;
+
+    // Check if user was already notified about this vaccine reminder in the last 3 days
+    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+    const alreadyNotified = await Notification.findOne({
+      user_id: ownerId,
+      type: 'VACCINE_REMINDER',
+      ref_id: vac._id.toString(),
+      created_at: { $gte: threeDaysAgo }
+    });
+
+    if (!alreadyNotified) {
+      const daysRemaining = Math.max(0, Math.ceil((vac.next_due_date - now) / (1000 * 60 * 60 * 24)));
+      await Notification.create({
+        user_id: ownerId,
+        title: `💉 Lịch tiêm nhắc của ${pet.name}`,
+        body: `Bé ${pet.name} có lịch tiêm vaccine "${vac.vaccine_name}" vào ngày ${vac.next_due_date.toLocaleDateString('vi-VN')} (còn ${daysRemaining} ngày). Hãy sắp xếp đưa bé đi tiêm nhé!`,
+        type: 'VACCINE_REMINDER',
+        ref_id: vac._id.toString(),
+        ref_type: 'Vaccine'
+      });
+      console.log(`[Vaccine Reminder Job] Created reminder for user ${ownerId} about pet ${pet.name} vaccine ${vac.vaccine_name}.`);
+    }
+  }
+};
+
 

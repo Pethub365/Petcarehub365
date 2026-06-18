@@ -2,6 +2,9 @@ const { Achievement, UserAchievement, Pet, User } = require('../models');
 
 // Seed default achievements if they don't exist
 const seedDefaultAchievements = async () => {
+    const count = await Achievement.countDocuments();
+    if (count > 0) return;
+
     const list = [
         {
             key: 'FIRST_QUEST',

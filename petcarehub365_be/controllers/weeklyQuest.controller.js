@@ -1,6 +1,6 @@
 const httpStatus = require('http-status');
 const catchAsync = require('../utils/catchAsync');
-const { WeeklyQuest, Pet, User, FamilyGroup } = require('../models');
+const { WeeklyQuest, Pet, User, FamilyGroup, Notification } = require('../models');
 const ApiError = require('../utils/ApiError');
 const { ensureWeeklyQuestsForPet } = require('../utils/questHelper');
 
@@ -162,6 +162,20 @@ exports.completeWeeklyQuest = catchAsync(async (req, res) => {
         } catch (petSaveErr) {
             console.error('[Database Save Error] Failed to save Pet:', petSaveErr);
             throw petSaveErr;
+        }
+
+        // Create Notification
+        try {
+            await Notification.create({
+                user_id: req.user._id,
+                title: 'Nhiệm vụ dài hạn hoàn thành! 🏆',
+                body: `Thú cưng ${pet.name} đã hoàn thành nhiệm vụ "${quest.title}". Nhận ngay +${addedXp} XP và +${coinsReward} Coins.`,
+                type: 'QUEST',
+                ref_id: quest._id.toString(),
+                ref_type: 'WeeklyQuest',
+            });
+        } catch (nErr) {
+            console.error('Error creating weekly quest completion notification:', nErr);
         }
 
         res.json({

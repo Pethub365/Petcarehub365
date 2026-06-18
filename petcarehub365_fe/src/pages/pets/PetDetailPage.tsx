@@ -3,10 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Edit2, Heart, Star, Calendar, Scale } from 'lucide-react';
 import petApi from '../../api/petApi';
 import dailyQuestApi from '../../api/dailyQuestApi';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function PetDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { refreshPets } = useAuth();
   const [pet, setPet] = useState<any>(null);
   const [quests, setQuests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +56,7 @@ export default function PetDetailPage() {
         setPreview('');
         setEditMode(false);
         setMsg('Đã lưu thành công!');
+        await refreshPets();
         setTimeout(() => setMsg(''), 3000);
       }
     } catch (err) {

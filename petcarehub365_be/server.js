@@ -83,6 +83,13 @@ connectDB()
         httpServer.listen(PORT, () => {
             console.log(`🐾 PetcareHub365 Server started on port ${PORT} in ${env} mode`);
         });
+        // Seed default achievements at startup
+        const { seedDefaultAchievements } = require('./utils/achievementHelper');
+        try {
+            await seedDefaultAchievements();
+        } catch (err) {
+            console.error('Failed to seed achievements on startup:', err);
+        }
         // Khởi động background job kiểm tra subscription hết hạn
         startSubscriptionExpiryJob();
         // Khởi động background job quét các daily quest trễ hạn

@@ -1,6 +1,6 @@
 const httpStatus = require('http-status');
 const catchAsync = require('../utils/catchAsync');
-const { DailyQuest, Pet, VetKnowledge, User, FamilyGroup } = require('../models');
+const { DailyQuest, Pet, VetKnowledge, User, FamilyGroup, Notification } = require('../models');
 const ApiError = require('../utils/ApiError');
 
 // Hàm seed VetKnowledge nếu database chưa có dữ liệu
@@ -239,6 +239,20 @@ exports.completeQuest = catchAsync(async (req, res) => {
         
         await user.save();
         await pet.save();
+
+        // Create Notification
+        try {
+            await Notification.create({
+                user_id: req.user._id,
+                title: 'Nhiệm vụ hoàn thành! 🎉',
+                body: `Thú cưng ${pet.name} đã hoàn thành nhiệm vụ "${quest.title}". Nhận ngay +${quest.reward_xp} XP và +${coinsReward} Coins.`,
+                type: 'QUEST',
+                ref_id: quest._id.toString(),
+                ref_type: 'DailyQuest',
+            });
+        } catch (nErr) {
+            console.error('Error creating completion notification:', nErr);
+        }
 
         res.json({
             success: true,

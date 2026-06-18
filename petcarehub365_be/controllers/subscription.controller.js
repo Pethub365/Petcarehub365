@@ -331,6 +331,13 @@ exports.runExpiryCheck = async () => {
     const now = new Date();
     console.log(`[Subscription Cron] Running expiry check at ${now.toISOString()}`);
 
+    // Check near expiry subscriptions (warn users 3 days before expiration)
+    try {
+        await exports.checkNearExpirySubscriptions();
+    } catch (err) {
+        console.error('[Subscription Cron] Error warning expiring subs:', err);
+    }
+
     // Tìm tất cả subscription non-FREE đã hết hạn và vẫn đang ACTIVE
     const expiredSubs = await Subscription.find({
         plan_type: { $in: ['PREMIUM', 'VIP'] },
@@ -377,3 +384,43 @@ exports.cancelAutoRenew = catchAsync(async (req, res) => {
         data: { expires_at: sub.expires_at },
     });
 });
+
+// 7. Background helper: Check and notify users with packages close to expiration (next 3 days)
+exports.checkNearExpirySubscriptions = async () => {
+    const now = new Date();
+    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    
+    // Find active Premium/VIP subscriptions that expire within 3 days
+    const expiringSubs = await Subscription.find({
+        plan_type: { $in: ['PREMIUM', 'VIP'] },
+        status: 'ACTIVE',
+        expires_at: { $gt: now, $lte: threeDaysFromNow }
+    }).populate('user_id');
+
+    for (const sub of expiringSubs) {
+        if (!sub.user_id) continue;
+        
+        // Calculate days remaining
+        const daysRemaining = Math.max(0, Math.ceil((sub.expires_at - now) / (1000 * 60 * 60 * 24)));
+        
+        // Check if we already sent an expiring notification within the last 3 days
+        const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+        const alreadyNotified = await Notification.findOne({
+            user_id: sub.user_id._id,
+            type: 'SUBSCRIPTION_EXPIRING',
+            created_at: { $gte: threeDaysAgo }
+        });
+
+        if (!alreadyNotified) {
+            const planName = sub.plan_type === 'VIP' ? 'VIP' : 'Premium';
+            await notifyUser(
+                sub.user_id,
+                `⏰ Gói ${planName} của bạn sắp hết hạn`,
+                `Gói dịch vụ ${planName} của bạn sẽ hết hạn sau ${daysRemaining} ngày nữa (vào ngày ${sub.expires_at.toLocaleDateString('vi-VN')}). Hãy gia hạn ngay để không bị gián đoạn trải nghiệm chăm sóc thú cưng!`,
+                'SUBSCRIPTION_EXPIRING'
+            );
+            console.log(`[Subscription Expiry Reminder] Sent warning to user ${sub.user_id._id} (expires in ${daysRemaining} days).`);
+        }
+    }
+};
+

@@ -73,6 +73,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
           setUser(JSON.parse(userRaw));
           setIsAuthenticated(true);
+          setLoading(false); // Unblock rendering instantly using local cached data
           try {
             const res = await authApi.getMe() as any;
             if (res?.success) {
@@ -158,8 +159,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
         return { success: true };
       }
+      return { success: false, message: res?.message || 'Cập nhật thất bại' };
     } catch (err: any) {
-      return { success: false, message: err.response?.data?.error?.message || 'Cập nhật thất bại' };
+      return { success: false, message: err.response?.data?.error?.message || err.response?.data?.message || 'Cập nhật thất bại' };
     }
   };
 

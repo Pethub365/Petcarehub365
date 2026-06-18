@@ -46,7 +46,10 @@ export default function ProfileEditPage() {
         setMsg('Hồ sơ đã được cập nhật thành công!');
         setAvatar(null);
         setPreview('');
-        setTimeout(() => setMsg(''), 3000);
+        setTimeout(() => {
+          setMsg('');
+          window.location.reload();
+        }, 1000);
       } else {
         setError(res?.message || 'Cập nhật thất bại');
       }

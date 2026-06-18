@@ -46,7 +46,8 @@ const userSchema = new mongoose.Schema({
     avatar_url: String,
     gender: String,
     dob: Date,
-    bio: String
+    bio: String,
+    address: String
   },
   last_login_at: Date,
   login_attempts: {

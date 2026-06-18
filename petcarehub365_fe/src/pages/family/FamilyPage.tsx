@@ -9,6 +9,7 @@ export default function FamilyPage() {
   const [familyGroup, setFamilyGroup] = useState<any>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [pendingInvites, setPendingInvites] = useState<any[]>([]);
+  const [sentInvites, setSentInvites] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Invitation Form
@@ -31,9 +32,25 @@ export default function FamilyPage() {
         setFamilyGroup(res.data);
         setMembers(res.data.members || []);
         setPendingInvites([]);
+
+        // Get sent invites if admin
+        const isAdmin = res.data.members?.some((m: any) => m.user_id?._id === user?._id && m.role === 'ADMIN');
+        if (isAdmin) {
+          try {
+            const sentRes = await familyApi.getSentInvitations() as any;
+            if (sentRes?.success) {
+              setSentInvites(sentRes.data || []);
+            }
+          } catch {
+            setSentInvites([]);
+          }
+        } else {
+          setSentInvites([]);
+        }
       } else {
         setFamilyGroup(null);
         setMembers([]);
+        setSentInvites([]);
         // Get pending invites for this user
         const inviteRes = await familyApi.getPendingInvitations() as any;
         if (inviteRes?.success) {
@@ -43,6 +60,7 @@ export default function FamilyPage() {
     } catch (err: any) {
       setFamilyGroup(null);
       setMembers([]);
+      setSentInvites([]);
     } finally {
       if (!isBackground) setLoading(false);
     }
@@ -68,6 +86,7 @@ export default function FamilyPage() {
       if (res?.success) {
         setMsg(res.message || 'Lời mời đã được gửi thành công!');
         setEmail('');
+        await load(true);
         setTimeout(() => setMsg(''), 5000);
       }
     } catch (err: any) {
@@ -243,30 +262,51 @@ export default function FamilyPage() {
           {/* Invitation / Right column */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             {isFamilyAdmin ? (
-              <div className="card">
-                <div className="section-title" style={{ marginBottom: 4 }}>
-                  <UserPlus size={16} style={{ marginRight: 6, display: 'inline' }} /> Mời thành viên
-                </div>
-                <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 16 }}>Nhập email người thân để gửi lời mời tham gia nhóm</p>
-                {msg && (
-                  <div style={{ background: '#E8F8EF', border: '1px solid #B2DFDB', borderRadius: 10, padding: '10px 14px', marginBottom: 12, fontSize: 13, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Check size={16} />
-                    <span>{msg}</span>
+              <>
+                <div className="card">
+                  <div className="section-title" style={{ marginBottom: 4 }}>
+                    <UserPlus size={16} style={{ marginRight: 6, display: 'inline' }} /> Mời thành viên
                   </div>
-                )}
-                <form onSubmit={handleInvite}>
-                  <div className="form-group">
-                    <label className="form-label">Email</label>
-                    <div className="input-group">
-                      <Mail size={16} className="input-icon" />
-                      <input className="form-control" type="email" placeholder="email@example.com" value={email} onChange={e => setEmail(e.target.value)} required />
+                  <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 16 }}>Nhập email người thân để gửi lời mời tham gia nhóm</p>
+                  {msg && (
+                    <div style={{ background: '#E8F8EF', border: '1px solid #B2DFDB', borderRadius: 10, padding: '10px 14px', marginBottom: 12, fontSize: 13, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Check size={16} />
+                      <span>{msg}</span>
+                    </div>
+                  )}
+                  <form onSubmit={handleInvite}>
+                    <div className="form-group">
+                      <label className="form-label">Email</label>
+                      <div className="input-group">
+                        <Mail size={16} className="input-icon" />
+                        <input className="form-control" type="email" placeholder="email@example.com" value={email} onChange={e => setEmail(e.target.value)} required />
+                      </div>
+                    </div>
+                    <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={inviting}>
+                      {inviting ? <><div className="spinner" />Đang gửi...</> : <><UserPlus size={15} />Gửi lời mời</>}
+                    </button>
+                  </form>
+                </div>
+
+                {sentInvites.length > 0 && (
+                  <div className="card">
+                    <div className="section-title" style={{ marginBottom: 12, fontSize: 14 }}>
+                      ✉️ Lời mời đã gửi ({sentInvites.length})
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {sentInvites.map((invite: any) => (
+                        <div key={invite._id} style={{ display: 'flex', flexDirection: 'column', padding: '10px 12px', background: 'var(--surface2)', borderRadius: 10, border: '1px solid var(--border)', fontSize: 13 }}>
+                          <div style={{ fontWeight: 600, color: 'var(--text)' }}>{invite.invited_email}</div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                            <span style={{ fontSize: 11, color: 'var(--text-3)' }}>Mã mời: <strong style={{ color: 'var(--primary)', letterSpacing: '0.5px' }}>{invite.token_hash}</strong></span>
+                            <span className="chip chip-blue" style={{ fontSize: 10, padding: '2px 6px' }}>ĐANG CHỜ</span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={inviting}>
-                    {inviting ? <><div className="spinner" />Đang gửi...</> : <><UserPlus size={15} />Gửi lời mời</>}
-                  </button>
-                </form>
-              </div>
+                )}
+              </>
             ) : (
               <div className="card" style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
                 <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 8 }}>

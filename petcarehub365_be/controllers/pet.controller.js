@@ -7,7 +7,13 @@ const cloudinary = require('../config/cloudinary');
 const config = require('../config/config');
 
 const isCloudinaryConfigured = () => {
-    return !!(config.cloudinary.cloudName && config.cloudinary.apiKey && config.cloudinary.apiSecret);
+    const { cloudName, apiKey, apiSecret } = config.cloudinary;
+    if (!cloudName || !apiKey || !apiSecret) return false;
+    // Bỏ qua nếu là giá trị placeholder "your_..." trong .env
+    if (cloudName.includes('your_') || apiKey.includes('your_') || apiSecret.includes('your_')) {
+        return false;
+    }
+    return true;
 };
 
 // Chuyển file upload thành Base64 data URI để lưu trực tiếp vào MongoDB

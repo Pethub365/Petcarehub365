@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, Lock, X, BookOpen, ShoppingBag, Award } from 'lucide-react';
-import petApi from '../../api/petApi';
+import { CheckCircle, Lock, X, BookOpen, ShoppingBag, Award, Trophy, Star } from 'lucide-react';
 import dailyQuestApi from '../../api/dailyQuestApi';
+import { useAuth } from '../../contexts/AuthContext';
 
 const CAT_MAP: Record<string, { emoji:string; label:string; color:string; bg:string }> = {
   NUTRITION: { emoji:'🍽️', label:'Dinh dưỡng', color:'#F2994A', bg:'#FFF8E1' },
@@ -30,7 +30,7 @@ const mapCategoryToShop = (cat: string) => {
 
 export default function MissionDetailPage() {
   const navigate = useNavigate();
-  const [pets, setPets] = useState<any[]>([]);
+  const { pets, loadingPets, refreshPets } = useAuth();
   const [selectedPet, setSelectedPet] = useState<any>(null);
   const [quests, setQuests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,50 +38,112 @@ export default function MissionDetailPage() {
   const [completing, setCompleting] = useState<string|null>(null);
   const [, setTick] = useState(0);
 
-  // Modal states
+  // Period Tabs state: matches mobile app's daily, weekly, monthly, annual
+  const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly' | 'annual'>('daily');
+
+  // Modal states for quest details
   const [activeQuestId, setActiveQuestId] = useState<string | null>(null);
   const [activeQuestDetails, setActiveQuestDetails] = useState<any | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+
+  // Success Celebration Modal states: matches mobile app celebration
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successRewards, setSuccessRewards] = useState<{
+    xp: number;
+    coins: number;
+    leveledUp: boolean;
+    currentLevel?: number;
+    unlockedAchievements?: string[];
+  } | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setTick(n => n + 1), 1000);
     return () => clearInterval(t);
   }, []);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      const res = await petApi.getPets() as any;
-      if (res?.success) {
-        const list = res.data.pets || [];
-        setPets(list);
-        const saved = localStorage.getItem('selectedPetId');
-        const pet = list.find((p:any) => p._id === saved) || list[0];
-        if (pet) { setSelectedPet(pet); await loadQuests(pet._id); }
+  const loadQuests = useCallback(async (petId: string, tab: string) => {
+    setLoading(true);
+    try {
+      let res;
+      if (tab === 'daily') {
+        res = await dailyQuestApi.getDailyQuests(petId) as any;
+      } else {
+        const periodMap = {
+          weekly: 'WEEKLY',
+          monthly: 'MONTHLY',
+          annual: 'ANNUAL'
+        } as const;
+        const apiPeriod = periodMap[tab as 'weekly' | 'monthly' | 'annual'];
+        res = await dailyQuestApi.getWeeklyQuests(petId, apiPeriod) as any;
       }
+      if (res?.success) {
+        setQuests(res.data.quests || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
       setLoading(false);
-    };
-    load();
+    }
   }, []);
 
-  const loadQuests = async (petId: string) => {
-    const res = await dailyQuestApi.getDailyQuests(petId) as any;
-    if (res?.success) setQuests(res.data.quests || []);
-  };
+  useEffect(() => {
+    refreshPets();
+  }, []);
+
+  useEffect(() => {
+    if (pets.length > 0) {
+      const saved = localStorage.getItem('selectedPetId');
+      const pet = pets.find((p:any) => p._id === saved) || pets[0];
+      setSelectedPet(pet);
+      localStorage.setItem('selectedPetId', pet._id);
+    } else {
+      setSelectedPet(null);
+      setQuests([]);
+      if (!loadingPets) setLoading(false);
+    }
+  }, [pets, loadingPets]);
+
+  useEffect(() => {
+    if (selectedPet?._id) {
+      loadQuests(selectedPet._id, activeTab);
+    }
+  }, [selectedPet?._id, activeTab, loadQuests]);
 
   const handleComplete = async (questId: string) => {
     setCompleting(questId);
     try {
-      const res = await dailyQuestApi.completeQuest(questId) as any;
-      if (res?.success && activeQuestDetails && activeQuestDetails._id === questId) {
-        // Update details in modal if open
-        setActiveQuestDetails((prev: any) => ({ ...prev, status: 'COMPLETED' }));
+      let res;
+      if (activeTab === 'daily') {
+        res = await dailyQuestApi.completeQuest(questId) as any;
+      } else {
+        res = await dailyQuestApi.completeWeeklyQuest(questId) as any;
+      }
+      if (res?.success) {
+        if (activeQuestDetails && activeQuestDetails._id === questId) {
+          // Update details in modal if open
+          setActiveQuestDetails((prev: any) => ({ ...prev, status: 'COMPLETED' }));
+        }
+
+        const { rewards } = res.data;
+        const unlockedAchievements = res.data.unlockedAchievements || [];
+
+        // Save rewards details to trigger the Celebration modal
+        setSuccessRewards({
+          xp: rewards.xp,
+          coins: rewards.coins,
+          leveledUp: rewards.leveledUp,
+          currentLevel: rewards.currentLevel,
+          unlockedAchievements
+        });
+        setShowSuccessModal(true);
+
+        await refreshPets(); // Refresh stats on frontend context
       }
     } catch (err) {
       console.error(err);
     }
     setCompleting(null);
-    if (selectedPet) loadQuests(selectedPet._id);
+    if (selectedPet) loadQuests(selectedPet._id, activeTab);
   };
 
   const handleQuestClick = async (quest: any) => {
@@ -89,7 +151,12 @@ export default function MissionDetailPage() {
     setActiveQuestId(quest._id);
     setLoadingDetails(true);
     try {
-      const res = await dailyQuestApi.getQuestById(quest._id) as any;
+      let res;
+      if (activeTab === 'daily') {
+        res = await dailyQuestApi.getQuestById(quest._id) as any;
+      } else {
+        res = await dailyQuestApi.getWeeklyQuestById(quest._id) as any;
+      }
       if (res?.success) {
         setActiveQuestDetails(res.data.quest);
       } else {
@@ -119,8 +186,8 @@ export default function MissionDetailPage() {
     <div>
       <div className="page-header" style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
         <div>
-          <h1>Nhiệm vụ hàng ngày</h1>
-          <p>Hoàn thành nhiệm vụ để nhận XP và phần thưởng</p>
+          <h1>Nhiệm vụ thú cưng</h1>
+          <p>Hoàn thành các thử thách chăm sóc để nhận XP và phần thưởng</p>
         </div>
         {selectedPet && (
           <div style={{ background:'var(--primary-bg)', borderRadius:12, padding:'8px 16px', textAlign:'right' }}>
@@ -135,7 +202,7 @@ export default function MissionDetailPage() {
         <div style={{ display:'flex', gap:10, marginBottom:20, overflowX:'auto', paddingBottom:4 }}>
           {pets.map(pet => (
             <button key={pet._id}
-              onClick={async () => { setSelectedPet(pet); localStorage.setItem('selectedPetId', pet._id); await loadQuests(pet._id); }}
+              onClick={async () => { setSelectedPet(pet); localStorage.setItem('selectedPetId', pet._id); await loadQuests(pet._id, activeTab); }}
               style={{
                 display:'flex', alignItems:'center', gap:8, padding:'8px 16px', borderRadius:20,
                 border: `2px solid ${selectedPet?._id===pet._id ? 'var(--primary)' : 'var(--border)'}`,
@@ -152,11 +219,42 @@ export default function MissionDetailPage() {
         </div>
       )}
 
+      {/* Period Tabs: Daily, Weekly, Monthly, Annual to mirror the mobile app */}
+      <div style={{ display:'flex', borderBottom:'1px solid var(--border)', marginBottom:20 }}>
+        {[
+          { id: 'daily', label: 'Hàng ngày' },
+          { id: 'weekly', label: 'Hàng tuần' },
+          { id: 'monthly', label: 'Hàng tháng' },
+          { id: 'annual', label: 'Hàng năm' },
+        ].map(tab => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button key={tab.id}
+              onClick={() => { setActiveTab(tab.id as any); setFilter('ALL'); }}
+              style={{
+                flex: 1,
+                padding: '12px 4px',
+                border: 'none',
+                borderBottom: `2px solid ${isActive ? 'var(--primary)' : 'transparent'}`,
+                background: 'none',
+                color: isActive ? 'var(--primary)' : 'var(--text-3)',
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                textAlign: 'center'
+              }}>
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Progress bar */}
       {selectedPet && quests.length > 0 && (
         <div className="card" style={{ marginBottom:20 }}>
           <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8, fontSize:13, fontWeight:600, color:'var(--text-2)' }}>
-            <span>Tiến trình hôm nay — {selectedPet.name}</span>
+            <span>Tiến trình {activeTab === 'daily' ? 'hôm nay' : activeTab === 'weekly' ? 'tuần này' : activeTab === 'monthly' ? 'tháng này' : 'năm nay'} — {selectedPet.name}</span>
             <span style={{ color:'var(--primary)' }}>{Math.round((doneCount/quests.length)*100)}%</span>
           </div>
           <div className="progress" style={{ height:10 }}>
@@ -226,6 +324,19 @@ export default function MissionDetailPage() {
                       <span className="chip chip-green">⭐ +{quest.reward_xp || 0} XP</span>
                       <span className="chip chip-yellow">🪙 +{quest.reward_coin || 10} Coin</span>
                       <span className="chip chip-blue">{cat.label}</span>
+                      {quest.source_knowledge_id && (
+                        <span className="chip" style={{ background: '#E1F0FF', color: '#2D9CDB', border: '1px solid #2D9CDB33', fontWeight: 700 }}>🩺 Tri thức y khoa</span>
+                      )}
+                      {(!quest.source_knowledge_id && (
+                        quest.title.includes(selectedPet?.name) || 
+                        quest.title.includes('Canxi') || 
+                        quest.title.includes('khớp') || 
+                        quest.title.includes('cân') || 
+                        quest.title.includes('Hạ nhiệt') ||
+                        quest.title.includes('Thư giãn')
+                      )) && (
+                        <span className="chip" style={{ background: '#FFF9E6', color: '#FFB000', border: '1px solid #FFB00033', fontWeight: 700 }}>✨ Cá nhân hóa</span>
+                      )}
                     </div>
                     {!isLocked && (
                       <div>
@@ -393,6 +504,117 @@ export default function MissionDetailPage() {
             ) : (
               <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-3)' }}>Không thể hiển thị chi tiết nhiệm vụ</div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Success Celebration Reward Modal: matches mobile app exactly */}
+      {showSuccessModal && successRewards && (
+        <div className="modal-overlay" onClick={() => setShowSuccessModal(false)} style={{ zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="modal" style={{ position: 'relative', maxWidth: 420, width: '90%', textAlign: 'center', padding: '30px 24px', background: '#fff', borderRadius: 32, boxShadow: 'var(--shadow-lg)' }} onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowSuccessModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', position: 'absolute', top: 16, right: 16 }}>
+              <X size={16} />
+            </button>
+            
+            <div style={{
+              width: 80,
+              height: 80,
+              borderRadius: '50%',
+              background: '#FFF8E1',
+              border: '3px solid #FFF0D0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 20px auto',
+              color: '#FFB000'
+            }}>
+              <Trophy size={42} />
+            </div>
+
+            <h3 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', marginBottom: 10 }}>
+              Hoàn thành xuất sắc! 🎉
+            </h3>
+            <p style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 24 }}>
+              Bạn và thú cưng đang thực hiện thói quen chăm sóc rất tốt! Hãy tiếp tục phát huy nhé.
+            </p>
+
+            <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
+              <div style={{
+                flex: 1,
+                background: '#E8F8F0',
+                border: '1px solid #27AE6033',
+                borderRadius: 16,
+                padding: '16px 12px',
+                textAlign: 'center'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, color: '#27AE60', fontWeight: 700, fontSize: 18 }}>
+                  <Star size={18} fill="#27AE60" />
+                  +{successRewards.xp}
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', marginTop: 4, textTransform: 'uppercase' }}>Kinh nghiệm (XP)</div>
+              </div>
+
+              <div style={{
+                flex: 1,
+                background: '#FFF9E6',
+                border: '1px solid #FFB00033',
+                borderRadius: 16,
+                padding: '16px 12px',
+                textAlign: 'center'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, color: '#FFB000', fontWeight: 700, fontSize: 18 }}>
+                  🪙 +{successRewards.coins}
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', marginTop: 4, textTransform: 'uppercase' }}>Tiền xu (Coins)</div>
+              </div>
+            </div>
+
+            {/* Level up alerts */}
+            {successRewards.leveledUp && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                background: '#FFF0F0',
+                border: '1px solid #FFEBEB',
+                borderRadius: 12,
+                padding: '10px 16px',
+                marginBottom: 24,
+                color: 'var(--primary)',
+                fontWeight: 700,
+                fontSize: 13
+              }}>
+                <Award size={18} />
+                Thú cưng đã thăng cấp lên CẤP {successRewards.currentLevel}! 🌟
+              </div>
+            )}
+
+            {/* Achievements list */}
+            {successRewards.unlockedAchievements && successRewards.unlockedAchievements.length > 0 && (
+              <div style={{
+                background: '#FFF9E6',
+                border: '1px solid #FFB00033',
+                borderRadius: 16,
+                padding: '12px 16px',
+                marginBottom: 24,
+                textAlign: 'left'
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#FFB000', marginBottom: 8, textAlign: 'center', letterSpacing: 0.5 }}>
+                  🏆 THÀNH TỰU MỚI ĐẠT ĐƯỢC!
+                </div>
+                {successRewards.unlockedAchievements.map((title: string, idx: number) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+                    <Trophy size={14} color="#FFB000" />
+                    <span>{title}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button className="btn btn-primary" style={{ width: '100%', padding: '12px', borderRadius: 16 }} onClick={() => setShowSuccessModal(false)}>
+              Nhận phần thưởng
+            </button>
           </div>
         </div>
       )}
