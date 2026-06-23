@@ -118,18 +118,214 @@ const ensureDailyQuestsForPet = async (pet, date = new Date(), reqTimezone = 'As
 
     const isVip = !!(hasActiveVipPlan || hasActiveVipStatus || isFamilyVip);
 
-    // Nếu đã có nhiệm vụ nhưng là của tài khoản FREE, nay chủ nuôi đã nâng cấp VIP -> Tiến hành xóa để sinh nhiệm vụ VIP mới
+    // Nếu đã có nhiệm vụ nhưng là của tài khoản FREE, nay chủ nuôi đã nâng cấp VIP -> Tiến hành sinh và bổ sung nhiệm vụ VIP mới (không xoá nhiệm vụ cũ để tránh mất tiến trình)
     if (quests.length > 0 && isVip) {
-        const totalXp = quests.reduce((sum, q) => sum + (q.reward_xp || 0), 0);
-        if (totalXp <= 100) {
-            await DailyQuest.deleteMany({
-                pet_id: pet._id,
-                assigned_date: {
-                    $gte: startOfDay,
-                    $lte: endOfDay
+        const standardTitles = [
+            'Bữa sáng dinh dưỡng',
+            'Bữa trưa dinh dưỡng',
+            'Bữa tối ấm cúng',
+            'Đi dạo buổi sáng',
+            'Dọn dẹp khay vệ sinh'
+        ];
+        const hasVipQuests = quests.some(q => q.source_knowledge_id || !standardTitles.includes(q.title));
+        
+        if (!hasVipQuests) {
+            const vipQuestsToCreate = [];
+
+            // 1.5. Tạo nhiệm vụ cá nhân hóa theo tuổi, tình trạng sức khỏe và chỉ số sức khỏe gần nhất
+            const dob = pet.dob ? new Date(pet.dob) : new Date();
+            const ageInMonths = Math.max(0, Math.floor((startOfDay - dob) / (1000 * 60 * 60 * 24 * 30.4375)));
+            const latestHealthLog = await HealthLog.findOne({ pet_id: pet._id }).sort({ measured_at: -1 });
+
+            let personalizedQuest = null;
+
+            if (latestHealthLog && latestHealthLog.temperature && latestHealthLog.temperature > 39.2) {
+                // Trường hợp sốt
+                personalizedQuest = {
+                    pet_id: pet._id,
+                    assigned_date: startOfDay,
+                    title: `Hạ nhiệt và bù nước cho ${pet.name}`,
+                    description: `Thân nhiệt gần nhất là ${latestHealthLog.temperature}°C (Cao). Hãy cho bé nằm phòng mát, bổ sung Oresol pha loãng và chườm ấm nách/bẹn.`,
+                    category: 'HEALTH_CARE',
+                    status: 'PENDING'
+                };
+            } else if (latestHealthLog && latestHealthLog.heart_rate && (
+                (pet.species === 'DOG' && latestHealthLog.heart_rate > 140) ||
+                (pet.species === 'CAT' && latestHealthLog.heart_rate > 220)
+            )) {
+                // Trường hợp nhịp tim nhanh bất thường lúc nghỉ
+                personalizedQuest = {
+                    pet_id: pet._id,
+                    assigned_date: startOfDay,
+                    title: `Thư giãn giảm nhịp tim cho ${pet.name}`,
+                    description: `Nhịp tim gần nhất đo được là ${latestHealthLog.heart_rate} bpm (Cao). Cần tạo không gian yên tĩnh, tránh tiếng ồn lớn và vuốt ve bé nhẹ nhàng.`,
+                    category: 'HEALTH_CARE',
+                    status: 'PENDING'
+                };
+            } else if (pet.health_status === 'OVERWEIGHT' || (latestHealthLog && pet.weight && latestHealthLog.weight > pet.weight * 1.15)) {
+                // Thừa cân béo phì
+                if (pet.species === 'DOG') {
+                    personalizedQuest = {
+                        pet_id: pet._id,
+                        assigned_date: startOfDay,
+                        title: `Đi bộ nhanh giảm cân cho ${pet.name}`,
+                        description: `Thực hiện bài đi bộ nhanh/chạy bộ kéo dài 25-30 phút để đốt mỡ thừa. Giảm nhẹ 10% lượng hạt ăn tối.`,
+                        category: 'HEALTH_CARE',
+                        status: 'PENDING'
+                    };
+                } else {
+                    personalizedQuest = {
+                        pet_id: pet._id,
+                        assigned_date: startOfDay,
+                        title: `Vận động giảm cân cho ${pet.name}`,
+                        description: `Chơi đùa cùng ${pet.name} bằng cần câu lông vũ hoặc đèn laser 15-20 phút để kích thích bé nhảy và chạy giảm mỡ.`,
+                        category: 'HEALTH_CARE',
+                        status: 'PENDING'
+                    };
                 }
-            });
-            quests = [];
+            } else if (pet.health_status === 'UNDERWEIGHT') {
+                // Thiếu cân
+                personalizedQuest = {
+                    pet_id: pet._id,
+                    assigned_date: startOfDay,
+                    title: `Bồi bổ bữa phụ cho ${pet.name}`,
+                    description: `Bổ sung bữa phụ giàu đạm (như ức gà luộc xé nhỏ hoặc pate phục hồi) kèm men tiêu hóa để hỗ trợ tăng cân.`,
+                    category: 'NUTRITION',
+                    status: 'PENDING'
+                };
+            } else if (ageInMonths <= 12) {
+                // Thú non (Dưới 1 tuổi)
+                personalizedQuest = {
+                    pet_id: pet._id,
+                    assigned_date: startOfDay,
+                    title: `Bổ sung Canxi & Tập thói quen`,
+                    description: `Bổ sung sữa dinh dưỡng hoặc Canxi Nano vào bữa sáng. Tập phản xạ lăn hoặc bắt bóng nhẹ nhàng cho bé cưng đang phát triển.`,
+                    category: 'HEALTH_CARE',
+                    status: 'PENDING'
+                };
+            } else if (ageInMonths >= 96) {
+                // Thú già (Trên 8 tuổi)
+                personalizedQuest = {
+                    pet_id: pet._id,
+                    assigned_date: startOfDay,
+                    title: `Chăm sóc xương khớp cho ${pet.name}`,
+                    description: `Bổ sung Glucosamine hoặc Omega-3 vào bữa ăn. Thực hiện xoa bóp, mát-xa nhẹ các khớp chân giúp ${pet.name} giảm nhức mỏi khớp.`,
+                    category: 'HEALTH_CARE',
+                    status: 'PENDING'
+                };
+            } else if (!latestHealthLog || (startOfDay - new Date(latestHealthLog.measured_at)) > 7 * 24 * 60 * 60 * 1000) {
+                // Quá 7 ngày chưa đo sức khỏe
+                personalizedQuest = {
+                    pet_id: pet._id,
+                    assigned_date: startOfDay,
+                    title: `Đo lường sức khỏe cho ${pet.name}`,
+                    description: `Đã hơn 7 ngày chưa cập nhật chỉ số sức khỏe của ${pet.name}. Hãy cân cân nặng, kiểm tra nhịp tim và lưu vào Health Dashboard hôm nay nhé.`,
+                    category: 'HEALTH_CARE',
+                    status: 'PENDING'
+                };
+            }
+
+            if (personalizedQuest) {
+                vipQuestsToCreate.push(personalizedQuest);
+            }
+
+            // 2. Lấy một bài VetKnowledge tương ứng giống loài (breed) để tạo nhiệm vụ đặc biệt
+            let knowledge = null;
+            if (pet.breed) {
+                const breedMatchCount = await VetKnowledge.countDocuments({
+                    is_active: true,
+                    'target_audience.breed': pet.breed,
+                    $or: [
+                        { 'target_audience.species': pet.species },
+                        { 'target_audience.species': 'ALL' }
+                    ]
+                });
+
+                if (breedMatchCount > 0) {
+                    const randomIndex = Math.floor(Math.random() * breedMatchCount);
+                    knowledge = await VetKnowledge.findOne({
+                        is_active: true,
+                        'target_audience.breed': pet.breed,
+                        $or: [
+                            { 'target_audience.species': pet.species },
+                            { 'target_audience.species': 'ALL' }
+                        ]
+                    }).skip(randomIndex);
+                }
+            }
+
+            // Fallback về ALL nếu không tìm thấy giống cụ thể
+            if (!knowledge) {
+                const genericMatchCount = await VetKnowledge.countDocuments({
+                    is_active: true,
+                    'target_audience.breed': 'ALL',
+                    $or: [
+                        { 'target_audience.species': pet.species },
+                        { 'target_audience.species': 'ALL' }
+                    ]
+                });
+
+                if (genericMatchCount > 0) {
+                    const randomIndex = Math.floor(Math.random() * genericMatchCount);
+                    knowledge = await VetKnowledge.findOne({
+                        is_active: true,
+                        'target_audience.breed': 'ALL',
+                        $or: [
+                            { 'target_audience.species': pet.species },
+                            { 'target_audience.species': 'ALL' }
+                        ]
+                    }).skip(randomIndex);
+                }
+            }
+
+            if (knowledge) {
+                vipQuestsToCreate.push({
+                    pet_id: pet._id,
+                    assigned_date: startOfDay,
+                    source_knowledge_id: knowledge._id,
+                    title: knowledge.title,
+                    description: `${knowledge.recommended_action}\n(Cơ sở y khoa: ${knowledge.medical_fact})`,
+                    category: knowledge.category === 'BEHAVIOR' ? 'TRAINING' : knowledge.category,
+                    status: 'PENDING',
+                    suggested_action: {
+                        has_product: !!knowledge.related_product_metadata?.product_category,
+                        product_query_tag: knowledge.related_product_metadata?.product_category || null
+                    },
+                    reward_xp: knowledge.base_reward_xp
+                });
+            }
+
+            // Cố định phần thưởng XP và Coins theo độ khó/danh mục của từng nhiệm vụ
+            const xpMap = {
+                'NUTRITION': 15,
+                'DAILY_ROUTINE': 30,
+                'TRAINING': 40,
+                'HEALTH_CARE': 50
+            };
+            const coinMap = {
+                'NUTRITION': 5,
+                'DAILY_ROUTINE': 10,
+                'TRAINING': 15,
+                'HEALTH_CARE': 15
+            };
+
+            for (let i = 0; i < vipQuestsToCreate.length; i++) {
+                const q = vipQuestsToCreate[i];
+                q.reward_xp = q.reward_xp || xpMap[q.category] || 30;
+                q.reward_coin = q.reward_coin || coinMap[q.category] || 10;
+            }
+
+            if (vipQuestsToCreate.length > 0) {
+                await DailyQuest.insertMany(vipQuestsToCreate);
+                // Cập nhật lại danh sách quests để bao gồm cả nhiệm vụ VIP mới tạo
+                quests = await DailyQuest.find({
+                    pet_id: pet._id,
+                    assigned_date: {
+                        $gte: startOfDay,
+                        $lte: endOfDay
+                    }
+                }).populate('source_knowledge_id').populate('assigned_to', 'email profile');
+            }
         }
     }
 

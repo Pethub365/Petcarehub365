@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, Lock, X, BookOpen, ShoppingBag, Award, Trophy, Star } from 'lucide-react';
+import { CheckCircle, Lock, X, BookOpen, ShoppingBag, Award, Trophy, Star, Utensils, Footprints, Scissors, Heart } from 'lucide-react';
 import dailyQuestApi from '../../api/dailyQuestApi';
 import { useAuth } from '../../contexts/AuthContext';
 
-const CAT_MAP: Record<string, { emoji:string; label:string; color:string; bg:string }> = {
-  NUTRITION: { emoji:'🍽️', label:'Dinh dưỡng', color:'#F2994A', bg:'#FFF8E1' },
-  DAILY_ROUTINE: { emoji:'🚶', label:'Hoạt động', color:'#2D9CDB', bg:'#E1F0FF' },
-  TRAINING: { emoji:'✂️', label:'Chải chuốt', color:'#9B51E0', bg:'#F3E5F5' },
-  HEALTH_CARE: { emoji:'❤️', label:'Sức khỏe', color:'#EC4B4B', bg:'#FFF0F0' },
+const CAT_MAP: Record<string, { icon: any; label:string; color:string; bg:string }> = {
+  NUTRITION: { icon: Utensils, label:'Dinh dưỡng', color:'#F2994A', bg:'#FFF8E1' },
+  DAILY_ROUTINE: { icon: Footprints, label:'Hoạt động', color:'#2D9CDB', bg:'#E1F0FF' },
+  TRAINING: { icon: Scissors, label:'Chải chuốt', color:'#9B51E0', bg:'#F3E5F5' },
+  HEALTH_CARE: { icon: Heart, label:'Sức khỏe', color:'#EC4B4B', bg:'#FFF0F0' },
 };
 
 function countdown(unlocksAt: string) {
@@ -296,6 +296,7 @@ export default function MissionDetailPage() {
             const isDone = quest.status === 'COMPLETED';
             const isWorking = quest.status === 'IN_PROGRESS';
             const cat = CAT_MAP[quest.category] || CAT_MAP.DAILY_ROUTINE;
+            const IconComponent = cat.icon;
             const progress = isDone ? 100 : isWorking ? 65 : 0;
 
             return (
@@ -305,8 +306,8 @@ export default function MissionDetailPage() {
                 onMouseEnter={e => { if(!isLocked) (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow)'; }}
                 onMouseLeave={e => { if(!isLocked) (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow-sm)'; }}>
                 <div style={{ display:'flex', alignItems:'flex-start', gap:14 }}>
-                  <div style={{ width:52, height:52, borderRadius:14, background:isLocked?'var(--surface2)':cat.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, flexShrink:0 }}>
-                    {isLocked ? <Lock size={22} color="#8A9AA9"/> : cat.emoji}
+                  <div style={{ width:52, height:52, borderRadius:14, background:isLocked?'var(--surface2)':cat.bg, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    {isLocked ? <Lock size={22} color="#8A9AA9"/> : <IconComponent size={24} color={cat.color} />}
                   </div>
                   <div style={{ flex:1 }}>
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:4 }}>
@@ -322,7 +323,6 @@ export default function MissionDetailPage() {
                     </div>
                     <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
                       <span className="chip chip-green">⭐ +{quest.reward_xp || 0} XP</span>
-                      <span className="chip chip-yellow">🪙 +{quest.reward_coin || 10} Coin</span>
                       <span className="chip chip-blue">{cat.label}</span>
                       {quest.source_knowledge_id && (
                         <span className="chip" style={{ background: '#E1F0FF', color: '#2D9CDB', border: '1px solid #2D9CDB33', fontWeight: 700 }}>🩺 Tri thức y khoa</span>
@@ -407,20 +407,13 @@ export default function MissionDetailPage() {
                 </p>
 
                 {/* Rewards section */}
-                <div className="card" style={{ padding: 14, background: 'var(--surface2)', display: 'flex', justifyContent: 'space-around', marginBottom: 20 }}>
+                <div className="card" style={{ padding: 14, background: 'var(--surface2)', display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center', fontWeight: 700, fontSize: 18, color: 'var(--success)' }}>
                       <Award size={18} />
-                      +{activeQuestDetails.reward_xp || 0}
+                      +{activeQuestDetails.reward_xp || 0} XP
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, marginTop: 2 }}>KINH NGHIỆM XP</div>
-                  </div>
-                  <div style={{ width: 1, background: 'var(--border)' }} />
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center', fontWeight: 700, fontSize: 18, color: 'var(--gold)' }}>
-                      🪙 +{activeQuestDetails.reward_coin || 10}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, marginTop: 2 }}>COINS THƯỞNG</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, marginTop: 2 }}>KINH NGHIỆM TÍCH LŨY</div>
                   </div>
                 </div>
 
@@ -548,9 +541,9 @@ export default function MissionDetailPage() {
               Bạn và thú cưng đang thực hiện thói quen chăm sóc rất tốt! Hãy tiếp tục phát huy nhé.
             </p>
 
-            <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
               <div style={{
-                flex: 1,
+                width: '100%',
                 background: '#E8F8F0',
                 border: '1px solid #27AE6033',
                 borderRadius: 16,
@@ -559,23 +552,9 @@ export default function MissionDetailPage() {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, color: '#27AE60', fontWeight: 700, fontSize: 18 }}>
                   <Star size={18} fill="#27AE60" />
-                  +{successRewards.xp}
+                  +{successRewards.xp} XP
                 </div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', marginTop: 4, textTransform: 'uppercase' }}>Kinh nghiệm (XP)</div>
-              </div>
-
-              <div style={{
-                flex: 1,
-                background: '#FFF9E6',
-                border: '1px solid #FFB00033',
-                borderRadius: 16,
-                padding: '16px 12px',
-                textAlign: 'center'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, color: '#FFB000', fontWeight: 700, fontSize: 18 }}>
-                  🪙 +{successRewards.coins}
-                </div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', marginTop: 4, textTransform: 'uppercase' }}>Tiền xu (Coins)</div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', marginTop: 4, textTransform: 'uppercase' }}>Kinh nghiệm nhận được</div>
               </div>
             </div>
 

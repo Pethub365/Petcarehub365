@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, Crown, Star, ArrowLeft, Calendar, X, ShieldCheck, History } from 'lucide-react';
+import { Check, Crown, Star, Calendar, X, ShieldCheck, History } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import subscriptionApi from '../../api/subscriptionApi';
 
 export default function SubscriptionPlansPage({ hideHeader = false }: { hideHeader?: boolean }) {
   const navigate = useNavigate();
-  const { refreshUser } = useAuth();
+  const { refreshUser, refreshPets } = useAuth();
   const [plans, setPlans] = useState<any[]>([]);
   const [currentSub, setCurrentSub] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Upgrade Form States
   const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY');
   const [checkoutPlan, setCheckoutPlan] = useState<any>(null);
@@ -57,6 +57,7 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
       if (res?.success) {
         setSuccessData(res.data);
         await refreshUser(); // Update Auth state immediately
+        await refreshPets(); // Refresh pets to sync subscription status
         await loadData(); // Reload page subscription status & transactions
       } else {
         setErrorMsg(res?.message || 'Có lỗi xảy ra khi nâng cấp gói.');
@@ -145,7 +146,7 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
         );
       }
       return (
-        <button 
+        <button
           className="btn btn-outline"
           style={{ width: '100%' }}
           onClick={() => handleOpenCheckout(plan)}
@@ -157,10 +158,10 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
 
     if (plan.plan_type === 'VIP') {
       return (
-        <button 
+        <button
           className="btn btn-primary"
-          style={{ 
-            width: '100%', 
+          style={{
+            width: '100%',
             background: 'linear-gradient(135deg,#FFD700,#FF8C00)',
             border: 'none',
             color: '#fff'
@@ -178,14 +179,7 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', paddingBottom: 40 }}>
       {/* Back to settings navigation */}
-      {!hideHeader && (
-        <button 
-          onClick={() => navigate('/settings')}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-2)', fontSize: 14, fontWeight: 600, marginBottom: 20 }}
-        >
-          <ArrowLeft size={16} /> Quay lại cài đặt
-        </button>
-      )}
+
 
       {!hideHeader && (
         <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -202,8 +196,8 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
         <div>
           {/* Current subscription banner */}
           {currentSub && (
-            <div className="card" style={{ 
-              marginBottom: 30, 
+            <div className="card" style={{
+              marginBottom: 30,
               borderLeft: `5px solid ${currentSub.plan_type === 'VIP' ? 'var(--gold)' : currentSub.plan_type === 'PREMIUM' ? 'var(--secondary)' : 'var(--text-3)'}`,
               background: 'var(--surface)'
             }}>
@@ -221,7 +215,7 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
                   {currentSub.expires_at && (
                     <div style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Calendar size={14} style={{ color: 'var(--text-3)' }} />
-                      Hạn dùng đến: <strong>{new Date(currentSub.expires_at).toLocaleDateString('vi-VN')}</strong> 
+                      Hạn dùng đến: <strong>{new Date(currentSub.expires_at).toLocaleDateString('vi-VN')}</strong>
                       {currentSub.days_remaining !== null && (
                         <span>(Còn {currentSub.days_remaining} ngày)</span>
                       )}
@@ -243,7 +237,7 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
           {/* Billing Cycle Toggle */}
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginBottom: 30 }}>
             <span style={{ fontSize: 14, fontWeight: billingCycle === 'MONTHLY' ? 700 : 500, color: billingCycle === 'MONTHLY' ? 'var(--text)' : 'var(--text-3)' }}>Thanh toán theo Tháng</span>
-            <button 
+            <button
               onClick={() => setBillingCycle(prev => prev === 'MONTHLY' ? 'YEARLY' : 'MONTHLY')}
               style={{
                 width: 50, height: 26, borderRadius: 13, background: 'var(--primary)',
@@ -271,7 +265,7 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
               const cycleText = billingCycle === 'MONTHLY' ? '/ tháng' : '/ năm';
 
               return (
-                <div key={plan.plan_type} className="card" style={{ 
+                <div key={plan.plan_type} className="card" style={{
                   display: 'flex', flexDirection: 'column', height: '100%',
                   background: isCurrent ? planGradients[plan.plan_type] : 'var(--surface)',
                   border: isCurrent ? planBorder[plan.plan_type] : '1px solid var(--border)',
@@ -280,10 +274,10 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
                   overflow: 'hidden'
                 }}>
                   {isCurrent && (
-                    <div style={{ 
-                      position: 'absolute', top: 12, right: 12, 
-                      background: plan.plan_type === 'VIP' ? 'var(--gold)' : 'var(--secondary)', 
-                      color: '#fff', fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 10 
+                    <div style={{
+                      position: 'absolute', top: 12, right: 12,
+                      background: plan.plan_type === 'VIP' ? 'var(--gold)' : 'var(--secondary)',
+                      color: '#fff', fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 10
                     }}>
                       GÓI HIỆN TẠI
                     </div>
@@ -396,7 +390,7 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
                 <h3 className="modal-title" style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
                   Nâng cấp {checkoutPlan.name}
                 </h3>
-                
+
                 {/* Checkout Summary */}
                 <div className="card" style={{ padding: 14, background: 'var(--surface2)', marginBottom: 20 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 6 }}>
@@ -432,10 +426,10 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
                         background: paymentMethod === method.id ? 'var(--primary-bg)' : 'var(--surface)',
                         cursor: 'pointer', transition: 'all .2s'
                       }}>
-                        <input 
-                          type="radio" 
-                          name="payment_method" 
-                          value={method.id} 
+                        <input
+                          type="radio"
+                          name="payment_method"
+                          value={method.id}
                           checked={paymentMethod === method.id}
                           onChange={() => setPaymentMethod(method.id as any)}
                           style={{ accentColor: 'var(--primary)' }}
@@ -460,9 +454,9 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
                   <button className="btn btn-outline" style={{ flex: 1 }} onClick={closeCheckout}>
                     Hủy bỏ
                   </button>
-                  <button 
-                    className="btn btn-primary" 
-                    style={{ flex: 2 }} 
+                  <button
+                    className="btn btn-primary"
+                    style={{ flex: 2 }}
                     onClick={handleUpgrade}
                     disabled={upgrading}
                   >
@@ -476,7 +470,7 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
                 <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#E8F8EF', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: 'var(--success)' }}>
                   <ShieldCheck size={36} />
                 </div>
-                
+
                 <h3 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginBottom: 6 }}>Nâng cấp thành công! 🌟</h3>
                 <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 20 }}>
                   Giao dịch của bạn đã được xử lý và kích hoạt thành công.

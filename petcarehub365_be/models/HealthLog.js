@@ -12,7 +12,8 @@ const healthLogSchema = new mongoose.Schema({
   },
   height: {
     type: Number,
-    required: true // cm
+    required: false,
+    default: null // cm
   },
   heart_rate: {
     type: Number,

@@ -60,7 +60,7 @@ export default function AchievementsPage() {
       </div>
 
       {loading ? <div className="page-loader"><div className="spinner spinner-lg"/></div> : (
-        <div className="grid grid-3">
+        <div className="grid grid-auto">
           {filtered.map(a => (
             <div key={a._id} className="card" style={{ opacity: a.unlocked ? 1 : 0.55, textAlign:'center', padding:'24px 16px', position:'relative' }}>
               {!a.unlocked && (

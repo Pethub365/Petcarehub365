@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, UserPlus, Trash2, Mail, Home, ShieldAlert, Check, RefreshCw, Settings, ClipboardList, PawPrint, X } from 'lucide-react';
+import { Users, UserPlus, Trash2, Mail, Home, ShieldAlert, Check, RefreshCw, Settings, ClipboardList, PawPrint, X, Utensils, Footprints, Scissors, Heart } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import familyApi from '../../api/familyApi';
@@ -37,69 +37,77 @@ export default function FamilyPage() {
       if (!isBackground) setLoading(true);
       setErrorMsg('');
       const res = await familyApi.getFamilyGroup() as any;
-      if (res?.success && res.data) {
-        setFamilyGroup(res.data);
-        setMembers(res.data.members || []);
-        setPendingInvites([]);
+      if (res?.success) {
+        if (res.data) {
+          setFamilyGroup(res.data);
+          setMembers(res.data.members || []);
+          setPendingInvites([]);
 
-        // Populate selectedPetIds
-        const currentPetIds = res.data.pet_ids?.map((p: any) => p._id) || [];
-        setSelectedPetIds(currentPetIds);
+          // Populate selectedPetIds
+          const currentPetIds = res.data.pet_ids?.map((p: any) => p._id) || [];
+          setSelectedPetIds(currentPetIds);
 
-        // Fetch daily quests for all family pets in parallel
-        const fPets = res.data.pet_ids || [];
-        if (fPets.length > 0) {
-          if (!isBackground) setLoadingQuests(true);
-          const questPromises = fPets.map(async (pet: any) => {
-            try {
-              const qRes = await dailyQuestApi.getDailyQuests(pet._id) as any;
-              if (qRes?.success) {
-                return qRes.data.quests.map((q: any) => ({
-                  ...q,
-                  petName: pet.name,
-                }));
+          // Fetch daily quests for all family pets in parallel
+          const fPets = res.data.pet_ids || [];
+          if (fPets.length > 0) {
+            if (!isBackground) setLoadingQuests(true);
+            const questPromises = fPets.map(async (pet: any) => {
+              try {
+                const qRes = await dailyQuestApi.getDailyQuests(pet._id) as any;
+                if (qRes?.success) {
+                  return qRes.data.quests.map((q: any) => ({
+                    ...q,
+                    petName: pet.name,
+                  }));
+                }
+              } catch (err) {
+                console.error(`Error loading quests for pet ${pet._id}:`, err);
               }
-            } catch (err) {
-              console.error(`Error loading quests for pet ${pet._id}:`, err);
-            }
-            return [];
-          });
-          const allQuestsArray = await Promise.all(questPromises);
-          setFamilyQuests(allQuestsArray.flat());
-        } else {
-          setFamilyQuests([]);
-        }
+              return [];
+            });
+            const allQuestsArray = await Promise.all(questPromises);
+            setFamilyQuests(allQuestsArray.flat());
+          } else {
+            setFamilyQuests([]);
+          }
 
-        // Get sent invites if admin
-        const isAdmin = res.data.members?.some((m: any) => m.user_id?._id === user?._id && m.role === 'ADMIN');
-        if (isAdmin) {
-          try {
-            const sentRes = await familyApi.getSentInvitations() as any;
-            if (sentRes?.success) {
-              setSentInvites(sentRes.data || []);
+          // Get sent invites if admin
+          const isAdmin = res.data.members?.some((m: any) => m.user_id?._id === user?._id && m.role === 'ADMIN');
+          if (isAdmin) {
+            try {
+              const sentRes = await familyApi.getSentInvitations() as any;
+              if (sentRes?.success) {
+                setSentInvites(sentRes.data || []);
+              }
+            } catch {
+              setSentInvites([]);
             }
-          } catch {
+          } else {
             setSentInvites([]);
           }
         } else {
+          // Success is true, but data is null (meaning no family group exists)
+          setFamilyGroup(null);
+          setMembers([]);
           setSentInvites([]);
+          setFamilyQuests([]);
+          // Get pending invites for this user
+          const inviteRes = await familyApi.getPendingInvitations() as any;
+          if (inviteRes?.success) {
+            setPendingInvites(inviteRes.data || []);
+          }
         }
       } else {
-        setFamilyGroup(null);
-        setMembers([]);
-        setSentInvites([]);
-        setFamilyQuests([]);
-        // Get pending invites for this user
-        const inviteRes = await familyApi.getPendingInvitations() as any;
-        if (inviteRes?.success) {
-          setPendingInvites(inviteRes.data || []);
+        // Success is false or response is invalid
+        if (!isBackground) {
+          setErrorMsg('Không thể tải dữ liệu gia đình từ máy chủ.');
         }
       }
     } catch (err: any) {
-      setFamilyGroup(null);
-      setMembers([]);
-      setSentInvites([]);
-      setFamilyQuests([]);
+      console.error('Error loading family details:', err);
+      if (!isBackground) {
+        setErrorMsg('Không thể kết nối đến máy chủ gia đình.');
+      }
     } finally {
       if (!isBackground) setLoading(false);
       setLoadingQuests(false);
@@ -113,7 +121,7 @@ export default function FamilyPage() {
     }, 10000); // Poll every 10 seconds
 
     return () => clearInterval(interval);
-  }, []);
+  }, [user?._id]);
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -408,22 +416,25 @@ export default function FamilyPage() {
                   Không tìm thấy nhiệm vụ nào cần phân công cho hôm nay.
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {familyQuests.map((quest: any) => {
                     const isCompleted = quest.status === 'COMPLETED';
-                    const categoryMap: Record<string, string> = {
-                      NUTRITION: '🍽️',
-                      DAILY_ROUTINE: '🚶',
-                      HEALTH_CARE: '❤️',
-                      TRAINING: '✂️'
+                    const categoryMap: Record<string, { icon: any; color: string; bg: string }> = {
+                      NUTRITION: { icon: Utensils, color: '#F2994A', bg: '#FFF8E1' },
+                      DAILY_ROUTINE: { icon: Footprints, color: '#2D9CDB', bg: '#E1F0FF' },
+                      HEALTH_CARE: { icon: Heart, color: '#EC4B4B', bg: '#FFF0F0' },
+                      TRAINING: { icon: Scissors, color: '#9B51E0', bg: '#F3E5F5' }
                     };
-                    const emoji = categoryMap[quest.category] || '📋';
+                    const cat = categoryMap[quest.category];
+                    const IconComponent = cat ? cat.icon : ClipboardList;
+                    const iconColor = cat ? cat.color : 'var(--text-3)';
+                    const iconBg = cat ? cat.bg : 'var(--surface2)';
                     const currentAssignee = quest.assigned_to?._id || quest.assigned_to || '';
 
                     return (
                       <div key={quest._id} className="card" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 14, marginBottom: 0, border: '1px solid var(--border)', background: isCompleted ? 'rgba(39, 174, 96, 0.05)' : 'var(--surface)' }}>
-                        <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
-                          {emoji}
+                        <div style={{ width: 40, height: 40, borderRadius: 10, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <IconComponent size={20} color={iconColor} />
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
