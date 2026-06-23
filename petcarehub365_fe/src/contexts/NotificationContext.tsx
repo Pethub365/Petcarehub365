@@ -6,6 +6,7 @@ interface NotificationContextType {
   unreadCount: number;
   fetchNotifications: () => Promise<void>;
   markAllRead: () => Promise<void>;
+  markAsRead: (id: string) => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType | null>(null);
@@ -25,7 +26,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
       const res = await notificationApi.getNotifications() as any;
       if (res?.success) {
         setNotifications(res.data.notifications || []);
-        setUnreadCount((res.data.notifications || []).filter((n: any) => !n.isRead).length);
+        setUnreadCount((res.data.notifications || []).filter((n: any) => !(n.isRead || n.is_read)).length);
       }
     } catch { /* ignore */ }
   }, []);
@@ -33,13 +34,21 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
   const markAllRead = async () => {
     try {
       await notificationApi.markAllRead();
-      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true, is_read: true })));
       setUnreadCount(0);
     } catch { /* ignore */ }
   };
 
+  const markAsRead = async (id: string) => {
+    try {
+      await notificationApi.markRead(id);
+      setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true, is_read: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch { /* ignore */ }
+  };
+
   return (
-    <NotificationContext.Provider value={{ notifications, unreadCount, fetchNotifications, markAllRead }}>
+    <NotificationContext.Provider value={{ notifications, unreadCount, fetchNotifications, markAllRead, markAsRead }}>
       {children}
     </NotificationContext.Provider>
   );

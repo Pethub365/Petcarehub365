@@ -84,12 +84,20 @@ exports.createPet = catchAsync(async (req, res) => {
         }
     }
 
+    const parsedDob = parseDob(dob);
+    if (isNaN(parsedDob.getTime())) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Ngày sinh không hợp lệ');
+    }
+    if (parsedDob > new Date()) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Ngày sinh không thể ở tương lai');
+    }
+
     const pet = await Pet.create({
         owner_id: req.user._id,
         name,
         species: species ? species.toUpperCase() : 'OTHER',
         breed,
-        dob: parseDob(dob),
+        dob: parsedDob,
         weight: weight ? Number(weight) : null,
         gender: gender ? gender.toUpperCase() : 'UNKNOWN',
         is_neutered: is_neutered === 'true' || is_neutered === true,
@@ -272,7 +280,25 @@ exports.updatePet = catchAsync(async (req, res) => {
     if (name !== undefined) pet.name = name;
     if (species !== undefined) pet.species = species.toUpperCase();
     if (breed !== undefined) pet.breed = breed;
-    if (dob !== undefined) pet.dob = parseDob(dob);
+    
+    if (dob !== undefined) {
+        const parsedDob = parseDob(dob);
+        if (isNaN(parsedDob.getTime())) {
+            throw new ApiError(httpStatus.BAD_REQUEST, 'Ngày sinh không hợp lệ');
+        }
+        if (parsedDob > new Date()) {
+            throw new ApiError(httpStatus.BAD_REQUEST, 'Ngày sinh không thể ở tương lai');
+        }
+        pet.dob = parsedDob;
+    } else if (req.body.age !== undefined) {
+        const ageYears = Number(req.body.age);
+        if (isNaN(ageYears) || ageYears < 0 || ageYears > 100) {
+            throw new ApiError(httpStatus.BAD_REQUEST, 'Tuổi không hợp lệ');
+        }
+        const currentYear = new Date().getFullYear();
+        pet.dob = new Date(`${currentYear - ageYears}-01-01`);
+    }
+
     if (weight !== undefined) pet.weight = Number(weight);
     if (gender !== undefined) pet.gender = gender.toUpperCase();
     if (is_neutered !== undefined) pet.is_neutered = is_neutered === 'true' || is_neutered === true;

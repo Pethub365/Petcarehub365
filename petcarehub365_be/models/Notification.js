@@ -18,4 +18,12 @@ const notificationSchema = new mongoose.Schema({
 
 notificationSchema.index({ user_id: 1, is_read: 1, created_at: -1 });
 
+// Virtual for isRead to match frontend usage
+notificationSchema.virtual('isRead').get(function () {
+  return this.is_read;
+});
+
+notificationSchema.set('toObject', { virtuals: true });
+notificationSchema.set('toJSON', { virtuals: true });
+
 module.exports = mongoose.model('Notification', notificationSchema);

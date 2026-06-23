@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit2, Trash2, PawPrint, Heart, Star } from 'lucide-react';
+import { Plus, Edit2, Trash2, PawPrint, Heart, Star, MoreVertical } from 'lucide-react';
 import petApi from '../../api/petApi';
 
 import { useAuth } from '../../contexts/AuthContext';
@@ -9,6 +9,7 @@ export default function PetsPage() {
   const navigate = useNavigate();
   const { pets, loadingPets: loading, refreshPets } = useAuth();
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Bạn có chắc muốn xóa thú cưng này không?')) return;
@@ -99,11 +100,50 @@ export default function PetsPage() {
                       <div style={{ fontSize:12, color:'var(--text-3)', textTransform:'capitalize' }}>{pet.species} • {pet.breed || 'Không rõ giống'}</div>
                     </div>
                   </div>
-                  <div style={{ display:'flex', gap:6 }} onClick={e => e.stopPropagation()}>
-                    <button className="icon-btn" onClick={() => navigate(`/pets/${pet._id}`)}><Edit2 size={15} /></button>
-                    <button className="icon-btn" onClick={() => handleDelete(pet._id)} disabled={deleting === pet._id}>
-                      {deleting === pet._id ? <div className="spinner" /> : <Trash2 size={15} />}
+                  <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+                    <button
+                      className="icon-btn"
+                      onClick={() => setActiveDropdownId(activeDropdownId === pet._id ? null : pet._id)}
+                      style={{ padding: 6 }}
+                    >
+                      <MoreVertical size={16} />
                     </button>
+
+                    {activeDropdownId === pet._id && (
+                      <>
+                        <div
+                          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 98 }}
+                          onClick={() => setActiveDropdownId(null)}
+                        />
+                        <div className="dropdown-menu">
+                          <button
+                            className="dropdown-item"
+                            onClick={() => {
+                              setActiveDropdownId(null);
+                              navigate(`/pets/${pet._id}`, { state: { edit: true } });
+                            }}
+                          >
+                            <Edit2 size={13} />
+                            <span>Chỉnh sửa</span>
+                          </button>
+                          <button
+                            className="dropdown-item danger"
+                            onClick={() => {
+                              setActiveDropdownId(null);
+                              handleDelete(pet._id);
+                            }}
+                            disabled={deleting === pet._id}
+                          >
+                            {deleting === pet._id ? (
+                              <div className="spinner" style={{ width: 13, height: 13 }} />
+                            ) : (
+                              <Trash2 size={13} />
+                            )}
+                            <span>Xóa</span>
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
 

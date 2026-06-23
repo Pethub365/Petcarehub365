@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, UserPlus, Trash2, Mail, Home, ShieldAlert, Check, RefreshCw, Settings, ClipboardList, PawPrint, X, Utensils, Footprints, Scissors, Heart } from 'lucide-react';
+import { Users, Trash2, Home, ShieldAlert, RefreshCw, Settings, ClipboardList, PawPrint, X, Utensils, Footprints, Scissors, Heart } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import familyApi from '../../api/familyApi';
@@ -10,7 +10,6 @@ export default function FamilyPage() {
   const [familyGroup, setFamilyGroup] = useState<any>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [pendingInvites, setPendingInvites] = useState<any[]>([]);
-  const [sentInvites, setSentInvites] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Task Assignment & Pets Management
@@ -20,17 +19,19 @@ export default function FamilyPage() {
   const [selectedPetIds, setSelectedPetIds] = useState<string[]>([]);
   const [savingPets, setSavingPets] = useState(false);
   const [assigningQuestId, setAssigningQuestId] = useState<string | null>(null);
-
-  // Invitation Form
-  const [email, setEmail] = useState('');
-  const [inviting, setInviting] = useState(false);
-  const [msg, setMsg] = useState('');
+  const [selectedQuestPetId, setSelectedQuestPetId] = useState<string | null>(null);
 
   // Create & Join Forms
   const [groupName, setGroupName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Invite member states
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [sentInvitations, setSentInvitations] = useState<any[]>([]);
+  const [inviting, setInviting] = useState(false);
+  const [inviteSuccessMsg, setInviteSuccessMsg] = useState('');
 
   const load = async (isBackground = false) => {
     try {
@@ -47,6 +48,17 @@ export default function FamilyPage() {
           const currentPetIds = res.data.pet_ids?.map((p: any) => p._id) || [];
           setSelectedPetIds(currentPetIds);
 
+          if (currentPetIds.length > 0) {
+            setSelectedQuestPetId(prev => {
+              if (prev && currentPetIds.includes(prev)) return prev;
+              const savedId = localStorage.getItem('selectedPetId');
+              if (savedId && currentPetIds.includes(savedId)) return savedId;
+              return currentPetIds[0];
+            });
+          } else {
+            setSelectedQuestPetId(null);
+          }
+
           // Fetch daily quests for all family pets in parallel
           const fPets = res.data.pet_ids || [];
           if (fPets.length > 0) {
@@ -58,6 +70,7 @@ export default function FamilyPage() {
                   return qRes.data.quests.map((q: any) => ({
                     ...q,
                     petName: pet.name,
+                    petId: pet._id,
                   }));
                 }
               } catch (err) {
@@ -71,25 +84,25 @@ export default function FamilyPage() {
             setFamilyQuests([]);
           }
 
-          // Get sent invites if admin
-          const isAdmin = res.data.members?.some((m: any) => m.user_id?._id === user?._id && m.role === 'ADMIN');
+          // Fetch sent invitations if user is admin
+          const isAdmin = res.data.members?.some(
+            (m: any) => m.user_id?._id === user?._id && m.role === 'ADMIN'
+          );
           if (isAdmin) {
             try {
-              const sentRes = await familyApi.getSentInvitations() as any;
-              if (sentRes?.success) {
-                setSentInvites(sentRes.data || []);
+              const sentInvRes = await familyApi.getSentInvitations() as any;
+              if (sentInvRes?.success) {
+                setSentInvitations(sentInvRes.data || []);
               }
-            } catch {
-              setSentInvites([]);
+            } catch (err) {
+              console.error('Error loading sent invitations:', err);
             }
-          } else {
-            setSentInvites([]);
           }
+
         } else {
           // Success is true, but data is null (meaning no family group exists)
           setFamilyGroup(null);
           setMembers([]);
-          setSentInvites([]);
           setFamilyQuests([]);
           // Get pending invites for this user
           const inviteRes = await familyApi.getPendingInvitations() as any;
@@ -123,26 +136,6 @@ export default function FamilyPage() {
     return () => clearInterval(interval);
   }, [user?._id]);
 
-  const handleInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) return;
-    setInviting(true);
-    setErrorMsg('');
-    setMsg('');
-    try {
-      const res = await familyApi.inviteMember(email) as any;
-      if (res?.success) {
-        setMsg(res.message || 'Lời mời đã được gửi thành công!');
-        setEmail('');
-        await load(true);
-        setTimeout(() => setMsg(''), 5000);
-      }
-    } catch (err: any) {
-      setErrorMsg(err.response?.data?.message || 'Thành viên đã có nhóm.');
-    } finally {
-      setInviting(false);
-    }
-  };
 
   const handleRemove = async (memberId: string) => {
     if (!confirm('Xóa thành viên này khỏi nhóm gia đình?')) return;
@@ -261,11 +254,51 @@ export default function FamilyPage() {
     }
   };
 
+  const handleInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail.trim()) return;
+
+    try {
+      setInviting(true);
+      setErrorMsg('');
+      setInviteSuccessMsg('');
+      const res = await familyApi.inviteMember(inviteEmail.trim()) as any;
+      if (res?.success) {
+        setInviteSuccessMsg(res.message || `Đã gửi mã mời thành công tới ${inviteEmail}`);
+        setInviteEmail('');
+        // Reload sent invitations
+        const sentInvRes = await familyApi.getSentInvitations() as any;
+        if (sentInvRes?.success) {
+          setSentInvitations(sentInvRes.data || []);
+        }
+      }
+    } catch (err: any) {
+      setErrorMsg(err.response?.data?.message || 'Không thể gửi lời mời.');
+    } finally {
+      setInviting(false);
+    }
+  };
+
   const isFamilyAdmin = familyGroup?.members?.some(
     (m: any) => m.user_id?._id === user?._id && m.role === 'ADMIN'
   );
 
   const isVip = user?.subscription_plan === 'VIP';
+
+  const questsByPet = familyGroup?.pet_ids?.map((pet: any) => {
+    const petQuests = familyQuests.filter(q => q.pet_id === pet._id || q.pet_id?._id === pet._id);
+    const totalQuests = petQuests.length;
+    const completedQuests = petQuests.filter(q => q.status === 'COMPLETED').length;
+    const isAllCompleted = totalQuests > 0 && completedQuests === totalQuests;
+
+    return {
+      pet,
+      quests: petQuests,
+      totalQuests,
+      completedQuests,
+      isAllCompleted
+    };
+  }) || [];
 
   if (loading) {
     return (
@@ -307,9 +340,7 @@ export default function FamilyPage() {
         // ==========================================
         // USER IS ALREADY IN A FAMILY GROUP
         // ==========================================
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24, alignItems: 'start' }}>
-          {/* Left Column */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             {/* Family Pets Card */}
             <div className="card">
               <div className="section-title" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
@@ -399,6 +430,61 @@ export default function FamilyPage() {
               </div>
             </div>
 
+            {/* Invite Member Card */}
+            {isFamilyAdmin && (
+              <div className="card">
+                <div className="section-title" style={{ marginBottom: 12 }}>
+                  📨 Mời thành viên tham gia gia đình
+                </div>
+                <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 16 }}>
+                  Nhập email của thành viên gia đình để gửi email mời và tạo mã kích hoạt.
+                </p>
+                <form onSubmit={handleInvite} style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+                  <input
+                    className="form-control"
+                    style={{ flex: 1 }}
+                    type="email"
+                    placeholder="Email người nhận (VD: name@example.com)"
+                    value={inviteEmail}
+                    onChange={e => setInviteEmail(e.target.value)}
+                    required
+                  />
+                  <button type="submit" className="btn btn-primary" style={{ padding: '0 24px' }} disabled={inviting}>
+                    {inviting ? 'Đang gửi...' : 'Gửi lời mời'}
+                  </button>
+                </form>
+
+                {inviteSuccessMsg && (
+                  <div style={{ background: '#E8F8EF', border: '1px solid #B2DFDB', borderRadius: 10, padding: '8px 12px', fontSize: 13, color: 'var(--success)', marginBottom: 16 }}>
+                    {inviteSuccessMsg}
+                  </div>
+                )}
+
+                {sentInvitations.length > 0 && (
+                  <div style={{ marginTop: 16 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-2)', marginBottom: 8 }}>
+                      Lời mời đã gửi (chưa tham gia) ({sentInvitations.length})
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {sentInvitations.map((inv: any) => (
+                        <div key={inv._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--surface2)', borderRadius: 10, border: '1px solid var(--border)', fontSize: 12 }}>
+                          <div>
+                            <span style={{ fontWeight: 600 }}>{inv.invited_email}</span>
+                            <span style={{ color: 'var(--text-3)', marginLeft: 8 }}>
+                              Hết hạn: {new Date(inv.expires_at).toLocaleDateString('vi-VN')}
+                            </span>
+                          </div>
+                          <div>
+                            Mã mời: <strong style={{ color: 'var(--primary)', letterSpacing: '1px' }}>{inv.token_hash}</strong>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Task Assignment Card */}
             <div className="card">
               <div className="section-title" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -416,137 +502,161 @@ export default function FamilyPage() {
                   Không tìm thấy nhiệm vụ nào cần phân công cho hôm nay.
                 </div>
               ) : (
-                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {familyQuests.map((quest: any) => {
-                    const isCompleted = quest.status === 'COMPLETED';
-                    const categoryMap: Record<string, { icon: any; color: string; bg: string }> = {
-                      NUTRITION: { icon: Utensils, color: '#F2994A', bg: '#FFF8E1' },
-                      DAILY_ROUTINE: { icon: Footprints, color: '#2D9CDB', bg: '#E1F0FF' },
-                      HEALTH_CARE: { icon: Heart, color: '#EC4B4B', bg: '#FFF0F0' },
-                      TRAINING: { icon: Scissors, color: '#9B51E0', bg: '#F3E5F5' }
-                    };
-                    const cat = categoryMap[quest.category];
-                    const IconComponent = cat ? cat.icon : ClipboardList;
-                    const iconColor = cat ? cat.color : 'var(--text-3)';
-                    const iconBg = cat ? cat.bg : 'var(--surface2)';
-                    const currentAssignee = quest.assigned_to?._id || quest.assigned_to || '';
+                <>
+                  {/* Pet Selector Capsules for Tasks */}
+                  {familyGroup.pet_ids?.length > 0 && (
+                    <div style={{ display:'flex', gap:10, marginBottom:20, overflowX:'auto', paddingBottom: 6 }}>
+                      {familyGroup.pet_ids.map((pet: any) => {
+                        const petQuests = familyQuests.filter(q => q.pet_id === pet._id || q.pet_id?._id === pet._id);
+                        const totalQuests = petQuests.length;
+                        const completedQuests = petQuests.filter(q => q.status === 'COMPLETED').length;
+                        const isAllCompleted = totalQuests > 0 && completedQuests === totalQuests;
 
-                    return (
-                      <div key={quest._id} className="card" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 14, marginBottom: 0, border: '1px solid var(--border)', background: isCompleted ? 'rgba(39, 174, 96, 0.05)' : 'var(--surface)' }}>
-                        <div style={{ width: 40, height: 40, borderRadius: 10, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <IconComponent size={20} color={iconColor} />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-                            <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{quest.title}</span>
-                            <span className="chip chip-blue" style={{ fontSize: 10, padding: '1px 5px' }}>{quest.petName}</span>
-                            {isCompleted && <span className="chip chip-green" style={{ fontSize: 10, padding: '1px 5px' }}>Đã xong ✓</span>}
-                          </div>
-                          <div style={{ fontSize: 12, color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {quest.description}
-                          </div>
-                        </div>
-
-                        {/* Assign Select */}
-                        <div style={{ flexShrink: 0 }}>
-                          <select
-                            className="form-control"
-                            style={{ padding: '4px 8px', fontSize: 12, height: 'auto', width: 150 }}
-                            value={currentAssignee}
-                            disabled={assigningQuestId === quest._id}
-                            onChange={(e) => handleAssignQuest(quest._id, e.target.value || null)}
-                          >
-                            <option value="">Chưa phân công</option>
-                            {members.map((m: any) => {
-                              const mUser = m.user_id;
-                              if (!mUser) return null;
-                              return (
-                                <option key={mUser._id} value={mUser._id}>
-                                  {mUser.profile?.full_name || mUser.email}
-                                </option>
-                              );
-                            })}
-                          </select>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Invitation / Right column */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {isFamilyAdmin ? (
-              <>
-                <div className="card">
-                  <div className="section-title" style={{ marginBottom: 4 }}>
-                    <UserPlus size={16} style={{ marginRight: 6, display: 'inline' }} /> Mời thành viên
-                  </div>
-                  <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 16 }}>Nhập email người thân để gửi lời mời tham gia nhóm</p>
-                  {msg && (
-                    <div style={{ background: '#E8F8EF', border: '1px solid #B2DFDB', borderRadius: 10, padding: '10px 14px', marginBottom: 12, fontSize: 13, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Check size={16} />
-                      <span>{msg}</span>
+                        return (
+                          <button key={pet._id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedQuestPetId(pet._id);
+                              localStorage.setItem('selectedPetId', pet._id);
+                            }}
+                            style={{
+                              display:'flex', alignItems:'center', gap:8, padding:'6px 16px', borderRadius:20,
+                              border:`2px solid ${selectedQuestPetId===pet._id?'var(--primary)':'var(--border)'}`,
+                              background: selectedQuestPetId===pet._id?'var(--primary-bg)':'var(--surface)',
+                              color: selectedQuestPetId===pet._id?'var(--primary)':'var(--text-2)',
+                              fontWeight:600, fontSize:13, cursor:'pointer', whiteSpace:'nowrap', flexShrink:0,
+                              transition: 'all 0.15s'
+                            }}>
+                            <div className="avatar avatar-sm" style={{ fontSize:12, width: 22, height: 22 }}>
+                              {pet.avatar_url ? <img src={pet.avatar_url} alt={pet.name} style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}}/> : '🐾'}
+                            </div>
+                            <span>{pet.name}</span>
+                            {isAllCompleted ? (
+                              <span style={{ fontSize: 11, color: 'var(--success)' }}>✨</span>
+                            ) : totalQuests > 0 ? (
+                              <span style={{ fontSize: 10, opacity: 0.7 }}>({completedQuests}/{totalQuests})</span>
+                            ) : null}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
-                  <form onSubmit={handleInvite}>
-                    <div className="form-group">
-                      <label className="form-label">Email</label>
-                      <div className="input-group">
-                        <Mail size={16} className="input-icon" />
-                        <input className="form-control" type="email" placeholder="email@example.com" value={email} onChange={e => setEmail(e.target.value)} required />
-                      </div>
-                    </div>
-                    <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={inviting}>
-                      {inviting ? <><div className="spinner" />Đang gửi...</> : <><UserPlus size={15} />Gửi lời mời</>}
-                    </button>
-                  </form>
-                </div>
 
-                {sentInvites.length > 0 && (
-                  <div className="card">
-                    <div className="section-title" style={{ marginBottom: 12, fontSize: 14 }}>
-                      ✉️ Lời mời đã gửi ({sentInvites.length})
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {sentInvites.map((invite: any) => (
-                        <div key={invite._id} style={{ display: 'flex', flexDirection: 'column', padding: '10px 12px', background: 'var(--surface2)', borderRadius: 10, border: '1px solid var(--border)', fontSize: 13 }}>
-                          <div style={{ fontWeight: 600, color: 'var(--text)' }}>{invite.invited_email}</div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-                            <span style={{ fontSize: 11, color: 'var(--text-3)' }}>Mã mời: <strong style={{ color: 'var(--primary)', letterSpacing: '0.5px' }}>{invite.token_hash}</strong></span>
-                            <span className="chip chip-blue" style={{ fontSize: 10, padding: '2px 6px' }}>ĐANG CHỜ</span>
+                  {/* Quests list of the selected pet */}
+                  {(() => {
+                    const activePetGroup = questsByPet.find((group: any) => group.pet._id === selectedQuestPetId);
+                    if (!activePetGroup) {
+                      return (
+                        <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-3)' }}>
+                          Chọn một thú cưng ở trên để xem công việc.
+                        </div>
+                      );
+                    }
+
+                    const { pet, quests, totalQuests, completedQuests, isAllCompleted } = activePetGroup;
+
+                    return (
+                      <div style={{ border: '1px solid var(--border)', borderRadius: 16, padding: 16, background: 'var(--surface2)' }}>
+                        {/* Pet Header */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div className="avatar avatar-sm" style={{ fontSize: 12 }}>
+                              {pet.avatar_url ? (
+                                <img src={pet.avatar_url} alt={pet.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                              ) : '🐾'}
+                            </div>
+                            <div>
+                              <span style={{ fontWeight: 800, fontSize: 15 }}>{pet.name}</span>
+                              <span style={{ fontSize: 12, color: 'var(--text-3)', marginLeft: 8 }}>
+                                ({totalQuests} nhiệm vụ)
+                              </span>
+                            </div>
+                          </div>
+                          <div>
+                            {isAllCompleted ? (
+                              <span className="chip chip-green" style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700, padding: '4px 10px', fontSize: 12 }}>
+                                ✨ Hoàn thành 100%
+                              </span>
+                            ) : totalQuests > 0 ? (
+                              <span className="chip chip-blue" style={{ padding: '4px 10px', fontSize: 12 }}>
+                                Tiến độ: {completedQuests}/{totalQuests}
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>
+                                Chưa có nhiệm vụ
+                              </span>
+                            )}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="card" style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <ShieldAlert size={16} />
-                  <span>Quyền hạn thành viên</span>
-                </div>
-                <p style={{ fontSize: 13, color: 'var(--text-3)', marginTop: 8 }}>
-                  Bạn tham gia nhóm với tư cách thành viên. Chỉ có <strong>Chủ sở hữu (ADMIN)</strong> mới có quyền mời hoặc xóa thành viên khỏi nhóm gia đình.
-                </p>
-              </div>
-            )}
 
-            <div className="card" style={{ background: 'var(--primary-bg)', border: '1px solid var(--primary-border)' }}>
-              <div style={{ fontSize: 20, marginBottom: 8 }}>💡</div>
-              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>Tính năng nhóm gia đình</div>
-              <ul style={{ fontSize: 13, color: 'var(--text-2)', listStyleType: 'none', display: 'flex', flexDirection: 'column', gap: 6, padding: 0 }}>
-                <li>✅ Chia sẻ thú cưng với mọi thành viên</li>
-                <li>✅ Cùng nhau theo dõi và tích điểm nhiệm vụ</li>
-                <li>✅ Gửi thông báo nhắc nhở chăm sóc chung</li>
-                <li>✅ Xem lịch sử sức khỏe đồng bộ</li>
-              </ul>
+                        {/* Quests list for this pet */}
+                        {quests.length === 0 ? (
+                          <div style={{ textAlign: 'center', padding: '12px 0', color: 'var(--text-3)', fontSize: 13 }}>
+                            Chưa thiết lập nhiệm vụ hôm nay cho {pet.name}.
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            {quests.map((quest: any) => {
+                              const isCompleted = quest.status === 'COMPLETED';
+                              const categoryMap: Record<string, { icon: any; color: string; bg: string }> = {
+                                NUTRITION: { icon: Utensils, color: '#F2994A', bg: '#FFF8E1' },
+                                DAILY_ROUTINE: { icon: Footprints, color: '#2D9CDB', bg: '#E1F0FF' },
+                                HEALTH_CARE: { icon: Heart, color: '#EC4B4B', bg: '#FFF0F0' },
+                                TRAINING: { icon: Scissors, color: '#9B51E0', bg: '#F3E5F5' }
+                              };
+                              const cat = categoryMap[quest.category];
+                              const IconComponent = cat ? cat.icon : ClipboardList;
+                              const iconColor = cat ? cat.color : 'var(--text-3)';
+                              const iconBg = cat ? cat.bg : 'var(--surface)';
+                              const currentAssignee = quest.assigned_to?._id || quest.assigned_to || '';
+
+                              return (
+                                <div key={quest._id} className="card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, marginBottom: 0, border: '1px solid var(--border)', background: isCompleted ? 'rgba(39, 174, 96, 0.03)' : 'var(--surface)' }}>
+                                  <div style={{ width: 36, height: 36, borderRadius: 8, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <IconComponent size={18} color={iconColor} />
+                                  </div>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
+                                      <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)', textDecoration: isCompleted ? 'line-through' : 'none', opacity: isCompleted ? 0.7 : 1 }}>{quest.title}</span>
+                                      {isCompleted && <span className="chip chip-green" style={{ fontSize: 9, padding: '1px 4px' }}>✓</span>}
+                                    </div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                      {quest.description}
+                                    </div>
+                                  </div>
+
+                                  {/* Assign Select */}
+                                  <div style={{ flexShrink: 0 }}>
+                                    <select
+                                      className="form-control"
+                                      style={{ padding: '2px 6px', fontSize: 11, height: 'auto', width: 130 }}
+                                      value={currentAssignee}
+                                      disabled={assigningQuestId === quest._id}
+                                      onChange={(e) => handleAssignQuest(quest._id, e.target.value || null)}
+                                    >
+                                      <option value="">Chưa phân công</option>
+                                      {members.map((m: any) => {
+                                        const mUser = m.user_id;
+                                        if (!mUser) return null;
+                                        return (
+                                          <option key={mUser._id} value={mUser._id}>
+                                            {mUser.profile?.full_name || mUser.email}
+                                          </option>
+                                        );
+                                      })}
+                                    </select>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
             </div>
-          </div>
         </div>
       ) : (
         // ==========================================

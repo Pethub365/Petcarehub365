@@ -61,4 +61,20 @@ const petSchema = new mongoose.Schema({
 petSchema.index({ owner_id: 1 });
 petSchema.index({ 'stats.xp': -1 }); // Tối ưu truy vấn bảng xếp hạng
 
+// Virtual for age in years
+petSchema.virtual('age').get(function () {
+  if (!this.dob) return null;
+  const today = new Date();
+  const birthDate = new Date(this.dob);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return Math.max(0, age);
+});
+
+petSchema.set('toObject', { virtuals: true });
+petSchema.set('toJSON', { virtuals: true });
+
 module.exports = mongoose.model('Pet', petSchema);

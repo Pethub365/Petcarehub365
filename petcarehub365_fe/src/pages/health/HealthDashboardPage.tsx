@@ -4,21 +4,7 @@ import petApi from '../../api/petApi';
 import healthApi from '../../api/healthApi';
 import { useAuth } from '../../contexts/AuthContext';
 
-const getBezierPath = (pts: { x: number; y: number }[]) => {
-  if (pts.length === 0) return '';
-  if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
-  let d = `M ${pts[0].x} ${pts[0].y}`;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[i];
-    const p1 = pts[i + 1];
-    const cp1x = p0.x + (p1.x - p0.x) / 2;
-    const cp1y = p0.y;
-    const cp2x = p0.x + (p1.x - p0.x) / 2;
-    const cp2y = p1.y;
-    d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p1.x} ${p1.y}`;
-  }
-  return d;
-};
+
 
 export default function HealthDashboardPage() {
   const { pets, refreshPets } = useAuth();
@@ -243,17 +229,9 @@ export default function HealthDashboardPage() {
   };
 
 
-  const HEALTH_TYPES = [
-    { value:'WEIGHT', label:'Cân nặng', icon:'⚖️', unit:'kg', color:'#2D9CDB', bg:'#E1F0FF' },
-    { value:'HEIGHT', label:'Chiều cao', icon:'📏', unit:'cm', color:'#4F8EF7', bg:'#EFF6FF' },
-    { value:'TEMPERATURE', label:'Nhiệt độ', icon:'🌡️', unit:'°C', color:'#EC4B4B', bg:'#FFF0F0' },
-    { value:'HEART_RATE', label:'Nhịp tim', icon:'❤️', unit:'bpm', color:'#22C55E', bg:'#E8F8EF' },
-    { value:'VACCINE', label:'Vaccine', icon:'💉', unit:'', color:'#9B51E0', bg:'#F3E5F5' },
-    { value:'VET_VISIT', label:'Khám thú y', icon:'🏥', unit:'', color:'#FFA94D', bg:'#FFF3E0' },
-    { value:'OTHER', label:'Khác', icon:'📋', unit:'', color:'var(--text-3)', bg:'var(--surface2)' },
-  ];
 
-  const typeInfo = (type: string) => HEALTH_TYPES.find(t => t.value === type) || HEALTH_TYPES[6];
+
+
 
   const getLatestValue = (type: string, unit = '', fallback = '—') => {
     const sorted = [...records]
@@ -659,7 +637,7 @@ export default function HealthDashboardPage() {
                       };
                     });
 
-                    const pathD = getBezierPath(points);
+
                     return (
                       <svg viewBox="0 0 500 200" width="100%" height="100%" style={{ overflow: 'visible' }}>
                         {[1, 2, 3, 4].map(val => (
@@ -775,8 +753,7 @@ export default function HealthDashboardPage() {
                       date: d.date
                     }));
 
-                    const pathD = getBezierPath(points);
-                    const fillD = `${pathD} L ${points[points.length - 1].x} ${padding.top + chartHeight} L ${points[0].x} ${padding.top + chartHeight} Z`;
+
 
                     return (
                       <svg viewBox="0 0 500 200" width="100%" height="100%" style={{ overflow: 'visible' }}>

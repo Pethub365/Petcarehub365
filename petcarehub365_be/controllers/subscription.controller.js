@@ -52,17 +52,18 @@ const notifyUser = async (user, title, body, type = 'SUBSCRIPTION') => {
         await Notification.create({ user_id: user._id, title, body, type });
     } catch (_) { /* non-blocking */ }
 
-    try {
-        await sendEmail({
-            to: user.email,
-            subject: title,
-            html: `<div style="font-family:Arial,sans-serif;padding:20px;color:#333;">
-                <h2 style="color:#EC4B4B;">🐾 PetCare Hub</h2>
-                <p>${body}</p>
-                <p style="color:#888;font-size:12px;">PetcareHub365 Team</p>
-            </div>`,
-        });
-    } catch (_) { /* non-blocking */ }
+    // Run sendEmail asynchronously in the background so it doesn't block the API response
+    sendEmail({
+        to: user.email,
+        subject: title,
+        html: `<div style="font-family:Arial,sans-serif;padding:20px;color:#333;">
+            <h2 style="color:#EC4B4B;">🐾 PetCare Hub</h2>
+            <p>${body}</p>
+            <p style="color:#888;font-size:12px;">PetcareHub365 Team</p>
+        </div>`,
+    }).catch(err => {
+        console.error('[Subscription Email] Failed to send email:', err.message);
+    });
 };
 
 // ─────────────────────────────────────────────

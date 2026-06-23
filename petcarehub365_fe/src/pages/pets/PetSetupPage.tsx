@@ -252,6 +252,13 @@ export default function PetSetupPage() {
                   setError('Vui lòng chọn ngày sinh!');
                   return;
                 }
+                const selectedDate = new Date(form.dob);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                if (selectedDate > today) {
+                  setError('Ngày sinh không thể ở tương lai!');
+                  return;
+                }
                 setError('');
                 setStep(2);
               }}>

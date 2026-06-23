@@ -176,6 +176,32 @@ export default function PetDetailScreen() {
       return;
     }
 
+    // Validate DOB format (D.M.YYYY or YYYY-MM-DD) and check if in future
+    const dobStr = editDob.trim();
+    if (!dobStr) {
+      Alert.alert('Thông báo', 'Vui lòng nhập ngày sinh');
+      return;
+    }
+    const dobParts = dobStr.split(/[./-]/);
+    let parsedDate: Date | null = null;
+    if (dobParts.length === 3) {
+      if (dobParts[2].length === 4) {
+        parsedDate = new Date(`${dobParts[2]}-${dobParts[1].padStart(2, '0')}-${dobParts[0].padStart(2, '0')}`);
+      } else if (dobParts[0].length === 4) {
+        parsedDate = new Date(`${dobParts[0]}-${dobParts[1].padStart(2, '0')}-${dobParts[2].padStart(2, '0')}`);
+      }
+    }
+    if (!parsedDate || isNaN(parsedDate.getTime())) {
+      Alert.alert('Thông báo', 'Ngày sinh không đúng định dạng (VD: 21.5.2024)');
+      return;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (parsedDate > today) {
+      Alert.alert('Thông báo', 'Ngày sinh không thể ở tương lai');
+      return;
+    }
+
     try {
       setUpdating(true);
       const formData = new FormData();

@@ -177,12 +177,12 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
   };
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', paddingBottom: 40 }}>
+    <div style={{ maxWidth: 1000, margin: '0 auto', paddingBottom: 20 }}>
       {/* Back to settings navigation */}
 
 
       {!hideHeader && (
-        <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
           <div>
             <h1>👑 Gói đăng ký hội viên</h1>
             <p>Nâng cấp gói để trải nghiệm các đặc quyền chăm sóc thú cưng không giới hạn</p>
@@ -194,71 +194,90 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
         <div className="page-loader"><div className="spinner spinner-lg" /></div>
       ) : (
         <div>
-          {/* Current subscription banner */}
-          {currentSub && (
-            <div className="card" style={{
-              marginBottom: 30,
-              borderLeft: `5px solid ${currentSub.plan_type === 'VIP' ? 'var(--gold)' : currentSub.plan_type === 'PREMIUM' ? 'var(--secondary)' : 'var(--text-3)'}`,
-              background: 'var(--surface)'
-            }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-3)', letterSpacing: '.06em', marginBottom: 4 }}>Gói của bạn hiện tại</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontWeight: 800, fontSize: 22, color: 'var(--text)' }}>
-                      {currentSub.plan_type === 'FREE' ? 'Gói Miễn Phí' : currentSub.plan_type === 'PREMIUM' ? 'Gói Premium ⭐' : 'Gói VIP 👑'}
-                    </span>
-                    <span className={`chip ${currentSub.status === 'ACTIVE' ? 'chip-green' : 'chip-gray'}`}>
-                      {currentSub.status === 'ACTIVE' ? 'ĐANG KÍCH HOẠT' : 'HẾT HẠN'}
-                    </span>
-                  </div>
-                  {currentSub.expires_at && (
-                    <div style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Calendar size={14} style={{ color: 'var(--text-3)' }} />
-                      Hạn dùng đến: <strong>{new Date(currentSub.expires_at).toLocaleDateString('vi-VN')}</strong>
-                      {currentSub.days_remaining !== null && (
-                        <span>(Còn {currentSub.days_remaining} ngày)</span>
-                      )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 18 }}>
+            {/* Current subscription banner */}
+            {currentSub && (
+              <div className="card" style={{
+                marginBottom: 0,
+                borderLeft: `5px solid ${currentSub.plan_type === 'VIP' ? 'var(--gold)' : currentSub.plan_type === 'PREMIUM' ? 'var(--secondary)' : 'var(--text-3)'}`,
+                background: 'var(--surface)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                padding: '14px 20px'
+              }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-3)', letterSpacing: '.06em', marginBottom: 4 }}>Gói của bạn hiện tại</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--text)' }}>
+                        {currentSub.plan_type === 'FREE' ? 'Gói Miễn Phí' : currentSub.plan_type === 'PREMIUM' ? 'Gói Premium ⭐' : 'Gói VIP 👑'}
+                      </span>
+                      <span className={`chip ${currentSub.status === 'ACTIVE' ? 'chip-green' : 'chip-gray'}`} style={{ fontSize: 10, padding: '2px 6px' }}>
+                        {currentSub.status === 'ACTIVE' ? 'KÍCH HOẠT' : 'HẾT HẠN'}
+                      </span>
                     </div>
-                  )}
-                </div>
+                    {currentSub.expires_at && (
+                      <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Calendar size={13} style={{ color: 'var(--text-3)' }} />
+                        Hạn dùng đến: <strong>{new Date(currentSub.expires_at).toLocaleDateString('vi-VN')}</strong>
+                        {currentSub.days_remaining !== null && (
+                          <span>({currentSub.days_remaining} ngày)</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
-                <div style={{ display: 'flex', gap: 10 }}>
-                  {currentSub.plan_type !== 'FREE' && currentSub.auto_renew && (
-                    <button className="btn btn-outline btn-sm" onClick={handleCancelAutoRenew}>
-                      Hủy gia hạn tự động
-                    </button>
-                  )}
+                  <div>
+                    {currentSub.plan_type !== 'FREE' && currentSub.auto_renew && (
+                      <button className="btn btn-outline btn-sm" onClick={handleCancelAutoRenew} style={{ padding: '6px 10px', fontSize: 11 }}>
+                        Hủy tự động gia hạn
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Billing Cycle Toggle */}
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginBottom: 30 }}>
-            <span style={{ fontSize: 14, fontWeight: billingCycle === 'MONTHLY' ? 700 : 500, color: billingCycle === 'MONTHLY' ? 'var(--text)' : 'var(--text-3)' }}>Thanh toán theo Tháng</span>
-            <button
-              onClick={() => setBillingCycle(prev => prev === 'MONTHLY' ? 'YEARLY' : 'MONTHLY')}
-              style={{
-                width: 50, height: 26, borderRadius: 13, background: 'var(--primary)',
-                position: 'relative', padding: 3, display: 'flex', alignItems: 'center',
-                transition: 'background .3s'
-              }}
-            >
-              <div style={{
-                width: 20, height: 20, borderRadius: 10, background: '#fff',
-                position: 'absolute', top: 3,
-                left: billingCycle === 'MONTHLY' ? 3 : 27,
-                transition: 'left .2s ease'
-              }} />
-            </button>
-            <span style={{ fontSize: 14, fontWeight: billingCycle === 'YEARLY' ? 700 : 500, color: billingCycle === 'YEARLY' ? 'var(--text)' : 'var(--text-3)' }}>
-              Thanh toán theo Năm <span style={{ background: '#FFF0F0', color: 'var(--primary)', fontWeight: 700, fontSize: 11, padding: '2px 6px', borderRadius: 4, marginLeft: 4 }}>Tiết kiệm 20%</span>
-            </span>
+            {/* Billing Cycle Toggle */}
+            <div className="card" style={{
+              marginBottom: 0,
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: '14px 20px'
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-3)', letterSpacing: '.06em', marginBottom: 12 }}>Chu kỳ thanh toán</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 13, fontWeight: billingCycle === 'MONTHLY' ? 700 : 500, color: billingCycle === 'MONTHLY' ? 'var(--text)' : 'var(--text-3)' }}>Tháng</span>
+                <button
+                  onClick={() => setBillingCycle(prev => prev === 'MONTHLY' ? 'YEARLY' : 'MONTHLY')}
+                  style={{
+                    width: 46, height: 24, borderRadius: 12, background: 'var(--primary)',
+                    position: 'relative', padding: 2, display: 'flex', alignItems: 'center',
+                    border: 'none', cursor: 'pointer', transition: 'background .3s'
+                  }}
+                >
+                  <div style={{
+                    width: 20, height: 20, borderRadius: 10, background: '#fff',
+                    position: 'absolute', top: 2,
+                    left: billingCycle === 'MONTHLY' ? 2 : 24,
+                    transition: 'left .2s ease'
+                  }} />
+                </button>
+                <span style={{ fontSize: 13, fontWeight: billingCycle === 'YEARLY' ? 700 : 500, color: billingCycle === 'YEARLY' ? 'var(--text)' : 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>Năm</span>
+                  <span style={{ background: '#FFF0F0', color: 'var(--primary)', fontWeight: 700, fontSize: 10, padding: '2px 6px', borderRadius: 4 }}>-20%</span>
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Plans Grid */}
-          <div className="grid grid-3" style={{ marginBottom: 40 }}>
+          <div className="grid grid-3" style={{ marginBottom: 20 }}>
             {plans.map(plan => {
               const isCurrent = plan.plan_type === (currentSub?.plan_type || 'FREE');
               const price = billingCycle === 'MONTHLY' ? plan.price_monthly : plan.price_yearly;
@@ -271,7 +290,8 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
                   border: isCurrent ? planBorder[plan.plan_type] : '1px solid var(--border)',
                   boxShadow: isCurrent ? 'var(--shadow)' : 'var(--shadow-sm)',
                   position: 'relative',
-                  overflow: 'hidden'
+                  overflow: 'hidden',
+                  padding: '18px 20px'
                 }}>
                   {isCurrent && (
                     <div style={{
@@ -283,12 +303,12 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
                     </div>
                   )}
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                     {planIcons[plan.plan_type] ? planIcons[plan.plan_type]() : null}
                     <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>{plan.name}</h3>
                   </div>
 
-                  <div style={{ marginBottom: 20 }}>
+                  <div style={{ marginBottom: 12 }}>
                     {price === 0 ? (
                       <span style={{ fontSize: 32, fontWeight: 800, color: 'var(--text)' }}>Miễn phí</span>
                     ) : (
@@ -302,9 +322,9 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
                   </div>
 
                   {/* Features List */}
-                  <div style={{ flex: 1, marginBottom: 24 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', marginBottom: 12, letterSpacing: '.04em' }}>Quyền lợi đặc quyền:</div>
-                    <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ flex: 1, marginBottom: 16 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', marginBottom: 8, letterSpacing: '.04em' }}>Quyền lợi đặc quyền:</div>
+                    <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {plan.features.map((feat: string, idx: number) => (
                         <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: 'var(--text-2)' }}>
                           <Check size={16} style={{ color: 'var(--success)', flexShrink: 0, marginTop: 2 }} />
@@ -324,7 +344,7 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
           {/* Transactions Log Section */}
           {transactions.length > 0 && (
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                 <History size={18} style={{ color: 'var(--text-2)' }} />
                 <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>Lịch sử giao dịch</h3>
               </div>

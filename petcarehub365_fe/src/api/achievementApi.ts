@@ -1,7 +1,7 @@
 import axiosClient from './axiosClient';
 
 const achievementApi = {
-  getAchievements: () => axiosClient.get('/achievements'),
+  getAchievements: (petId?: string) => axiosClient.get(`/achievements${petId ? `?pet_id=${petId}` : ''}`),
 };
 
 export default achievementApi;

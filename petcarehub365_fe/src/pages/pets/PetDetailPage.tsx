@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Edit2, Heart, Star, Calendar, Scale } from 'lucide-react';
 import petApi from '../../api/petApi';
 import dailyQuestApi from '../../api/dailyQuestApi';
@@ -8,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 export default function PetDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { refreshPets } = useAuth();
   const [pet, setPet] = useState<any>(null);
   const [quests, setQuests] = useState<any[]>([]);
@@ -18,6 +19,12 @@ export default function PetDetailPage() {
   const [preview, setPreview] = useState('');
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    if (location.state?.edit) {
+      setEditMode(true);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     const load = async () => {
@@ -42,6 +49,14 @@ export default function PetDetailPage() {
   };
 
   const handleSave = async () => {
+    if (form.age !== undefined && form.age !== '') {
+      const ageNum = Number(form.age);
+      if (isNaN(ageNum) || ageNum < 0 || ageNum > 100) {
+        setMsg('Tuổi không hợp lệ! Tuổi phải là số từ 0 đến 100.');
+        setTimeout(() => setMsg(''), 3000);
+        return;
+      }
+    }
     setSaving(true);
     try {
       const fd = new FormData();

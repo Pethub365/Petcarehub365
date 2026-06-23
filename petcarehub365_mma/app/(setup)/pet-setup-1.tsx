@@ -67,6 +67,32 @@ export default function PetSetup1Screen() {
       return;
     }
 
+    // Validate DOB format (D.M.YYYY or YYYY-MM-DD) and check if in future
+    const dobStr = dob.trim();
+    if (!dobStr) {
+      Alert.alert('Thông báo', 'Vui lòng nhập ngày sinh');
+      return;
+    }
+    const parts = dobStr.split(/[./-]/);
+    let parsedDate: Date | null = null;
+    if (parts.length === 3) {
+      if (parts[2].length === 4) {
+        parsedDate = new Date(`${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`);
+      } else if (parts[0].length === 4) {
+        parsedDate = new Date(`${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`);
+      }
+    }
+    if (!parsedDate || isNaN(parsedDate.getTime())) {
+      Alert.alert('Thông báo', 'Ngày sinh không đúng định dạng (VD: 21.5.2024)');
+      return;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (parsedDate > today) {
+      Alert.alert('Thông báo', 'Ngày sinh không thể ở tương lai');
+      return;
+    }
+
     router.push({
       pathname: '/(setup)/pet-setup-2',
       params: {

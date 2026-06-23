@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Plus, Lock, ChevronRight, Heart, Utensils, Footprints,
   Scissors, Zap, Trophy, CheckCircle2, PawPrint, Star,
-  X, Award, BookOpen, ShoppingBag, CheckCircle
+  X, Award, BookOpen, CheckCircle
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import dailyQuestApi from '../../api/dailyQuestApi';
@@ -644,53 +644,6 @@ export default function HomePage() {
                     <div style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5 }}>
                       <strong>Khuyến nghị chăm sóc:</strong> {activeQuestDetails.source_knowledge_id.recommended_action}
                     </div>
-                    {activeQuestDetails.source_knowledge_id.related_product_metadata?.promo_code && (
-                      <div style={{
-                        marginTop: 10,
-                        padding: '4px 10px',
-                        background: 'var(--primary-bg)',
-                        color: 'var(--primary)',
-                        borderRadius: 6,
-                        display: 'inline-block',
-                        fontWeight: 700,
-                        fontSize: 11
-                      }}>
-                        🎁 Mã giảm giá: {activeQuestDetails.source_knowledge_id.related_product_metadata.promo_code}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Suggested Action / Product Affiliate link */}
-                {(activeQuestDetails.suggested_action?.has_product || activeQuestDetails.source_knowledge_id?.related_product_metadata?.product_category) && (
-                  <div style={{
-                    padding: 16,
-                    borderRadius: 12,
-                    background: '#FFF8E1',
-                    border: '1px solid #FFE082',
-                    marginBottom: 20,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 12
-                  }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: 'var(--gold)', marginBottom: 4 }}>
-                        <ShoppingBag size={15} /> Gợi ý mua sắm hỗ trợ
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
-                        Nhiệm vụ này có các sản phẩm bổ trợ khuyên dùng đang bán tại Cửa Hàng.
-                      </div>
-                    </div>
-                    <button
-                      className="btn btn-outline btn-sm"
-                      onClick={() => {
-                        closeModal();
-                        navigate('/settings/subscription');
-                      }}
-                      style={{ flexShrink: 0, borderColor: 'var(--gold)', color: 'var(--gold)' }}>
-                      Xem ngay
-                    </button>
                   </div>
                 )}
 
