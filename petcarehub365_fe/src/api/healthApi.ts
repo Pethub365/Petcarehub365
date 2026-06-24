@@ -19,8 +19,10 @@ const healthApi = {
   deleteLog: (logId: string) => axiosClient.delete(`/pet-health/logs/${logId}`),
 
   getVaccines: (petId: string) => axiosClient.get(`/pet-health/${petId}/vaccines`),
-  addVaccine: (petId: string, data: { vaccine_name: string; administered_date: string; next_due_date?: string; notes?: string }) => 
+  addVaccine: (petId: string, data: { vaccine_name: string; administered_date: string; next_due_date?: string | null; notes?: string }) => 
     axiosClient.post(`/pet-health/${petId}/vaccines`, data),
+  updateVaccine: (vaccineId: string, data: { vaccine_name?: string; administered_date?: string; next_due_date?: string | null; notes?: string }) => 
+    axiosClient.put(`/pet-health/vaccines/${vaccineId}`, data),
   deleteVaccine: (vaccineId: string) => axiosClient.delete(`/pet-health/vaccines/${vaccineId}`),
 };
 

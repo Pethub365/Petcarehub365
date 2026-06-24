@@ -214,6 +214,48 @@ exports.deleteVaccine = catchAsync(async (req, res) => {
   });
 });
 
+// 8. Update vaccine
+exports.updateVaccine = catchAsync(async (req, res) => {
+  const { vaccineId } = req.params;
+  const { vaccine_name, administered_date, next_due_date, notes } = req.body;
+
+  const vaccine = await Vaccine.findById(vaccineId);
+  if (!vaccine) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Vaccine not found');
+  }
+
+  const pet = await Pet.findById(vaccine.pet_id);
+  if (!pet) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Pet not found');
+  }
+
+  // Verify ownership or family membership
+  const isOwner = pet.owner_id.toString() === req.user._id.toString();
+  if (!isOwner) {
+    const { FamilyGroup } = require('../models');
+    const familyGroup = await FamilyGroup.findOne({
+      pet_ids: pet._id,
+      'members.user_id': req.user._id
+    });
+    if (!familyGroup) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'You do not have access to this pet');
+    }
+  }
+
+  if (vaccine_name !== undefined) vaccine.vaccine_name = vaccine_name;
+  if (administered_date !== undefined) vaccine.administered_date = administered_date;
+  if (next_due_date !== undefined) vaccine.next_due_date = next_due_date;
+  if (notes !== undefined) vaccine.notes = notes;
+
+  await vaccine.save();
+
+  res.status(httpStatus.OK).json({
+    success: true,
+    message: 'Vaccine updated successfully',
+    data: vaccine
+  });
+});
+
 // 7. Background helper: Check and notify users about upcoming vaccine reminders (next 3 days)
 exports.checkVaccineReminders = async () => {
   const now = new Date();

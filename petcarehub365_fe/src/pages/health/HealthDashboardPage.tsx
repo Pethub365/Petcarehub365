@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { 
-  Activity, Plus, TrendingUp, Scale, Syringe, LineChart, FileText, 
+  Activity, Plus, Scale, Syringe, LineChart, FileText, 
   CheckCircle2, Settings, Trash2, Utensils, Droplet, Moon, Zap, 
-  Heart, Thermometer, Clock, Smile, Sparkles, Calendar 
+  Heart, Thermometer, Clock, Smile, Sparkles, Calendar, Edit2,
+  MoreVertical
 } from 'lucide-react';
 import petApi from '../../api/petApi';
 import healthApi from '../../api/healthApi';
@@ -16,7 +17,9 @@ export default function HealthDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingVaccineId, setEditingVaccineId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'log' | 'vaccine'>('log');
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   
   // Chart metric tabs toggle
   const [selectedTab, setSelectedTab] = useState<'WEIGHT_ACTIVITY' | 'NUTRITION_WATER' | 'ACTIVITY_SLEEP' | 'VITALS'>('WEIGHT_ACTIVITY');
@@ -186,13 +189,24 @@ export default function HealthDashboardPage() {
           setSaving(false);
           return;
         }
-        // 1. Add vaccine
-        await healthApi.addVaccine(selectedPet._id, {
-          vaccine_name: vaccineForm.vaccineName,
-          administered_date: new Date(vaccineForm.administeredDate).toISOString(),
-          next_due_date: vaccineForm.nextDueDate ? new Date(vaccineForm.nextDueDate).toISOString() : undefined,
-          notes: vaccineForm.notes
-        });
+        
+        if (editingVaccineId) {
+          // 1. Update vaccine
+          await healthApi.updateVaccine(editingVaccineId, {
+            vaccine_name: vaccineForm.vaccineName,
+            administered_date: new Date(vaccineForm.administeredDate).toISOString(),
+            next_due_date: vaccineForm.nextDueDate ? new Date(vaccineForm.nextDueDate).toISOString() : undefined,
+            notes: vaccineForm.notes
+          });
+        } else {
+          // 1. Add vaccine
+          await healthApi.addVaccine(selectedPet._id, {
+            vaccine_name: vaccineForm.vaccineName,
+            administered_date: new Date(vaccineForm.administeredDate).toISOString(),
+            next_due_date: vaccineForm.nextDueDate ? new Date(vaccineForm.nextDueDate).toISOString() : undefined,
+            notes: vaccineForm.notes
+          });
+        }
 
         // 2. Update pet health status
         const fd = new FormData();
@@ -209,6 +223,7 @@ export default function HealthDashboardPage() {
           notes: '',
           healthStatus: 'NORMAL'
         });
+        setEditingVaccineId(null);
       }
       setShowModal(false);
       await loadRecords(selectedPet._id);
@@ -289,6 +304,26 @@ export default function HealthDashboardPage() {
     }
   };
 
+  const handleCompleteVaccine = async (vac: any) => {
+    if (!window.confirm(`Đánh dấu vaccine "${vac.value}" đã hoàn thành?`)) return;
+    try {
+      setSaving(true);
+      await healthApi.updateVaccine(vac._id, {
+        vaccine_name: vac.value,
+        administered_date: new Date().toISOString(), // Completed today
+        next_due_date: null, // Clear due date to mark completed
+        notes: vac.note
+      });
+      await loadRecords(selectedPet._id);
+      await refreshPets();
+    } catch (err) {
+      console.error("Failed to complete vaccine", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /*
   const getLatestValue = (type: string, unit = '', fallback = '—') => {
     const sorted = [...records]
       .filter(r => r.type === type)
@@ -298,6 +333,7 @@ export default function HealthDashboardPage() {
     }
     return fallback;
   };
+  */
 
   const translateHealthStatus = (status: string) => {
     switch (status) {
@@ -322,6 +358,7 @@ export default function HealthDashboardPage() {
   };
 
   // Health Status Milestones Weekly Chart Calculations
+  /*
   const getStatusValue = (statusStr: string) => {
     switch (statusStr) {
       case 'NORMAL': return 4;
@@ -342,6 +379,7 @@ export default function HealthDashboardPage() {
       default: return 'Khỏe';
     }
   };
+  */
 
   // Helpers to generate smooth bezier curve paths
   const getBezierPath = (pts: { x: number; y: number }[]) => {
@@ -366,6 +404,7 @@ export default function HealthDashboardPage() {
     return `${bezier} L ${pts[pts.length - 1].x} ${bottomY} L ${pts[0].x} ${bottomY} Z`;
   };
 
+  /*
   const getStatusColor = (statusVal: number) => {
     switch (statusVal) {
       case 4: return '#10B981';
@@ -375,6 +414,7 @@ export default function HealthDashboardPage() {
       default: return '#10B981';
     }
   };
+  */
 
   // Breed-aware weight ranges lookup (kg)
   const getBreedWeightRange = (species: string = '', breed: string = '') => {
@@ -489,6 +529,7 @@ export default function HealthDashboardPage() {
   };
 
   // Compute health status from weight using breed-aware ranges
+  /*
   const getLogComputedStatus = (log: any, species: string = '', breed: string = '') => {
     const range = getBreedWeightRange(species, breed);
 
@@ -500,8 +541,10 @@ export default function HealthDashboardPage() {
 
     return 'NORMAL';
   };
+  */
 
   // Auto-suggest status when user changes weight in inline form
+  /*
   const getAutoSuggestedStatus = (weightStr: string) => {
     if (!weightStr || !selectedPet) return null;
     const w = parseFloat(weightStr);
@@ -511,9 +554,11 @@ export default function HealthDashboardPage() {
     if (w > range.max) return 'OVERWEIGHT';
     return 'NORMAL';
   };
+  */
 
   // Calculate vaccine alerts
   const vaccineRecords = records.filter(r => r.isVaccine);
+  /*
   const getVaccineAlerts = () => {
     let overdue = 0;
     let dueSoon = 0;
@@ -530,32 +575,44 @@ export default function HealthDashboardPage() {
     });
     return { overdue, dueSoon, total: vaccineRecords.length };
   };
+  */
 
-  const vacAlerts = getVaccineAlerts();
+  // const vacAlerts = getVaccineAlerts();
 
   // Generate organic combined biological chart data
   const generateChartData = () => {
-    const dates: Date[] = [];
+    if (rawLogs.length === 0) return [];
+
+    const sortedLogs = [...rawLogs].sort(
+      (a, b) => new Date(a.measured_at || a.created_at).getTime() - new Date(b.measured_at || b.created_at).getTime()
+    );
+
+    const firstLog = sortedLogs[0];
+    const firstLogDateObj = new Date(firstLog.measured_at || firstLog.created_at);
+    const firstLogStart = new Date(firstLogDateObj.getFullYear(), firstLogDateObj.getMonth(), firstLogDateObj.getDate());
+
     const now = new Date();
-    const daysCount = timeFilter === '7DAYS' ? 7 : timeFilter === '30DAYS' ? 30 : 10;
-    
-    if (timeFilter === 'ALL' && rawLogs.length > 0) {
-      const sorted = [...rawLogs].sort((a, b) => new Date(a.measured_at || a.created_at).getTime() - new Date(b.measured_at || b.created_at).getTime());
-      const startDate = new Date(sorted[0].measured_at || sorted[0].created_at);
-      const diffTime = Math.abs(now.getTime() - startDate.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      const finalDays = Math.max(5, Math.min(30, diffDays));
-      for (let i = finalDays - 1; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(now.getDate() - i);
-        dates.push(d);
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    let startChartDate = firstLogStart;
+    if (timeFilter === '7DAYS') {
+      const sevenDaysAgo = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
+      if (sevenDaysAgo > firstLogStart) {
+        startChartDate = sevenDaysAgo;
       }
-    } else {
-      for (let i = daysCount - 1; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(now.getDate() - i);
-        dates.push(d);
+    } else if (timeFilter === '30DAYS') {
+      const thirtyDaysAgo = new Date(todayStart.getTime() - 29 * 24 * 60 * 60 * 1000);
+      if (thirtyDaysAgo > firstLogStart) {
+        startChartDate = thirtyDaysAgo;
       }
+    }
+
+    const dates: Date[] = [];
+    const diffTime = todayStart.getTime() - startChartDate.getTime();
+    const diffDays = Math.floor(diffTime / (24 * 60 * 60 * 1000));
+    for (let i = 0; i <= diffDays; i++) {
+      const d = new Date(startChartDate.getTime() + i * 24 * 60 * 60 * 1000);
+      dates.push(d);
     }
 
     const isCat = selectedPet?.species?.toLowerCase() === 'cat' || selectedPet?.species?.toLowerCase() === 'mèo';
@@ -567,8 +624,9 @@ export default function HealthDashboardPage() {
     const baseActivity = isCat ? 35 : 55;
     const baseTemp = isCat ? 38.6 : 38.4;
     const baseHR = isCat ? 140 : 90;
+    const baseHeight = selectedPet?.height || (isCat ? 25 : 45);
 
-    return dates.map((date, idx) => {
+    return dates.map((date) => {
       const dateString = date.toISOString().split('T')[0];
       const matches = rawLogs.filter(l => {
         const lDateStr = new Date(l.measured_at || l.created_at).toISOString().split('T')[0];
@@ -576,21 +634,37 @@ export default function HealthDashboardPage() {
       });
 
       const log = matches.length > 0 ? matches[matches.length - 1] : null;
-      const seedVal = (idx * 17) % 100;
-      const wave = Math.sin(idx * 0.8);
-      const wave2 = Math.cos(idx * 0.5);
+
+      // Helper to find the most recent log that has a valid value for a specific field
+      const getFieldFromPast = (field: string, fallback: any) => {
+        if (log && log[field] !== undefined && log[field] !== null && log[field] !== '') {
+          return log[field];
+        }
+        
+        for (let i = sortedLogs.length - 1; i >= 0; i--) {
+          const l = sortedLogs[i];
+          const lDate = new Date(l.measured_at || l.created_at);
+          const lDateStart = new Date(lDate.getFullYear(), lDate.getMonth(), lDate.getDate());
+          if (lDateStart <= date) {
+            if (l[field] !== undefined && l[field] !== null && l[field] !== '') {
+              return l[field];
+            }
+          }
+        }
+        return fallback;
+      };
 
       return {
         date,
-        weight: log?.weight || parseFloat((baseWeight + wave * 0.12 + (seedVal / 1000)).toFixed(1)),
-        height: log?.height || Math.round(isCat ? 25 + wave2 * 0.8 : 45 + wave2 * 1.5),
-        heart_rate: log?.heart_rate || Math.round(baseHR + wave * 8 + (seedVal % 4)),
-        temperature: log?.temperature || parseFloat((baseTemp + wave2 * 0.15 + (seedVal % 3) * 0.04).toFixed(1)),
-        food_intake: log?.food_intake || Math.round(baseFood + wave * 10 + (seedVal % 6)),
-        water_intake: log?.water_intake || Math.round(baseWater + wave2 * 20 + (seedVal % 12)),
-        sleep_duration: log?.sleep_duration || parseFloat((baseSleep + wave * 0.8 + (seedVal % 4) * 0.12).toFixed(1)),
-        activity_minutes: log?.activity_minutes || Math.round(baseActivity + wave2 * 6 + (seedVal % 5)),
-        health_status: log?.health_status || (log?.weight ? getLogComputedStatus(log, selectedPet?.species, selectedPet?.breed) : 'NORMAL'),
+        weight: getFieldFromPast('weight', baseWeight),
+        height: getFieldFromPast('height', baseHeight),
+        heart_rate: getFieldFromPast('heart_rate', baseHR),
+        temperature: getFieldFromPast('temperature', baseTemp),
+        food_intake: getFieldFromPast('food_intake', baseFood),
+        water_intake: getFieldFromPast('water_intake', baseWater),
+        sleep_duration: getFieldFromPast('sleep_duration', baseSleep),
+        activity_minutes: getFieldFromPast('activity_minutes', baseActivity),
+        health_status: log?.health_status || getFieldFromPast('health_status', 'NORMAL'),
         note: log?.note || '',
         isReal: !!log
       };
@@ -637,6 +711,14 @@ export default function HealthDashboardPage() {
           <p style={{ fontSize: 13, color: 'var(--text-3)' }}>Theo dõi sức khỏe và lịch sử khám bệnh</p>
         </div>
         <button className="btn btn-primary" onClick={() => {
+          setEditingVaccineId(null);
+          setVaccineForm({
+            vaccineName: '',
+            administeredDate: new Date().toISOString().split('T')[0],
+            nextDueDate: '',
+            notes: '',
+            healthStatus: selectedPet?.health_status || 'NORMAL'
+          });
           setShowModal(true);
           setLogForm(f => ({
             ...f,
@@ -1312,12 +1394,37 @@ export default function HealthDashboardPage() {
                   <div className="page-loader" style={{ height: 180 }}><div className="spinner"/></div>
                 ) : (
                   (() => {
+                    if (rawLogs.length === 0) {
+                      return (
+                        <div style={{ 
+                          height: '200px', 
+                          display: 'flex', 
+                          flexDirection: 'column', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          color: 'var(--text-3)',
+                          border: '1px dashed var(--border)',
+                          borderRadius: '12px',
+                          background: 'var(--surface2)',
+                          padding: '20px',
+                          textAlign: 'center'
+                        }}>
+                          <LineChart size={40} opacity={0.3} style={{ marginBottom: 12 }} />
+                          <p style={{ fontSize: 13, fontWeight: 600, margin: '0 0 6px 0', color: 'var(--text)' }}>
+                            Chưa có dữ liệu đồ thị
+                          </p>
+                          <p style={{ fontSize: 11, margin: 0, maxWidth: '280px', lineHeight: 1.5 }}>
+                            Vui lòng nhấn <strong>Cập nhật nhanh sức khỏe</strong> hoặc <strong>Thêm hồ sơ</strong> để ghi nhận chỉ số và bắt đầu theo dõi biểu đồ.
+                          </p>
+                        </div>
+                      );
+                    }
                     const points = generateChartData();
                     const padding = { top: 25, right: 45, bottom: 35, left: 45 };
                     const chartWidth = 500 - padding.left - padding.right;
                     const chartHeight = 200 - padding.top - padding.bottom;
                     const xMax = points.length - 1;
-                    const getX = (idx) => padding.left + (xMax > 0 ? (idx / xMax) * chartWidth : chartWidth / 2);
+                    const getX = (idx: number) => padding.left + (xMax > 0 ? (idx / xMax) * chartWidth : chartWidth / 2);
                     const labelInterval = Math.ceil(points.length / 5);
 
                     if (selectedTab === 'WEIGHT_ACTIVITY') {
@@ -1334,14 +1441,14 @@ export default function HealthDashboardPage() {
                       const actValues = points.map(p => p.activity_minutes);
                       const maxAct = Math.max(60, ...actValues) * 1.15;
 
-                      const getY1 = (val) => padding.top + chartHeight - ((val - minW) / (maxW - minW)) * chartHeight;
-                      const getY2 = (val) => padding.top + chartHeight - (val / maxAct) * chartHeight;
+                      const getY1 = (val: number) => padding.top + chartHeight - ((val - minW) / (maxW - minW)) * chartHeight;
+                      const getY2 = (val: number) => padding.top + chartHeight - (val / maxAct) * chartHeight;
 
                       const wPoints = points.map((p, idx) => ({ x: getX(idx), y: getY1(p.weight) }));
                       const actPoints = points.map((p, idx) => ({ x: getX(idx), y: getY2(p.activity_minutes) }));
 
-                      const yMaxZone = getY1(ranges.WEIGHT.max);
-                      const yMinZone = getY1(ranges.WEIGHT.min);
+                      const yMaxZone = Math.max(padding.top, Math.min(padding.top + chartHeight, getY1(ranges.WEIGHT.max)));
+                      const yMinZone = Math.max(padding.top, Math.min(padding.top + chartHeight, getY1(ranges.WEIGHT.min)));
 
                       return (
                         <div style={{ position: 'relative', width: '100%', overflow: 'visible' }}>
@@ -1357,9 +1464,9 @@ export default function HealthDashboardPage() {
                             </defs>
 
                             {/* Background safety grid zones */}
-                            <rect x={padding.left} y={padding.top} width={chartWidth} height={Math.max(0, yMaxZone - padding.top)} fill="rgba(239, 68, 68, 0.03)" />
-                            <rect x={padding.left} y={yMaxZone} width={chartWidth} height={Math.max(0, yMinZone - yMaxZone)} fill="rgba(16, 185, 129, 0.05)" />
-                            <rect x={padding.left} y={yMinZone} width={chartWidth} height={Math.max(0, padding.top + chartHeight - yMinZone)} fill="rgba(245, 158, 11, 0.03)" />
+                            <rect x={padding.left} y={padding.top} width={chartWidth} height={Math.max(0, yMaxZone - padding.top)} fill="rgba(239, 68, 68, 0.03)" style={{ pointerEvents: 'none' }} />
+                            <rect x={padding.left} y={yMaxZone} width={chartWidth} height={Math.max(0, yMinZone - yMaxZone)} fill="rgba(16, 185, 129, 0.05)" style={{ pointerEvents: 'none' }} />
+                            <rect x={padding.left} y={yMinZone} width={chartWidth} height={Math.max(0, padding.top + chartHeight - yMinZone)} fill="rgba(245, 158, 11, 0.03)" style={{ pointerEvents: 'none' }} />
 
                             {/* Range threshold dashed lines */}
                             <line x1={padding.left} y1={yMaxZone} x2={padding.left + chartWidth} y2={yMaxZone} stroke="rgba(16, 185, 129, 0.2)" strokeDasharray="3 3" />
@@ -1525,8 +1632,8 @@ export default function HealthDashboardPage() {
                       const watValues = points.map(p => p.water_intake);
                       const maxWater = Math.max(250, ...watValues) * 1.15;
 
-                      const getY1 = (val) => padding.top + chartHeight - (val / maxFood) * chartHeight;
-                      const getY2 = (val) => padding.top + chartHeight - (val / maxWater) * chartHeight;
+                      const getY1 = (val: number) => padding.top + chartHeight - (val / maxFood) * chartHeight;
+                      const getY2 = (val: number) => padding.top + chartHeight - (val / maxWater) * chartHeight;
 
                       const stepWidth = chartWidth / points.length;
                       const barWidth = Math.max(5, Math.min(12, stepWidth * 0.28));
@@ -1673,8 +1780,8 @@ export default function HealthDashboardPage() {
                       const slValues = points.map(p => p.sleep_duration);
                       const maxSleep = Math.max(12, ...slValues) * 1.15;
 
-                      const getY1 = (val) => padding.top + chartHeight - (val / maxAct) * chartHeight;
-                      const getY2 = (val) => padding.top + chartHeight - (val / maxSleep) * chartHeight;
+                      const getY1 = (val: number) => padding.top + chartHeight - (val / maxAct) * chartHeight;
+                      const getY2 = (val: number) => padding.top + chartHeight - (val / maxSleep) * chartHeight;
 
                       const actPoints = points.map((p, idx) => ({ x: getX(idx), y: getY1(p.activity_minutes) }));
                       const slPoints = points.map((p, idx) => ({ x: getX(idx), y: getY2(p.sleep_duration) }));
@@ -1810,14 +1917,14 @@ export default function HealthDashboardPage() {
                       let minHR = Math.max(40, Math.min(...hrValues) - 15);
                       let maxHR = Math.max(180, ...hrValues) + 15;
 
-                      const getY1 = (val) => padding.top + chartHeight - ((val - minT) / (maxT - minT)) * chartHeight;
-                      const getY2 = (val) => padding.top + chartHeight - ((val - minHR) / (maxHR - minHR)) * chartHeight;
+                      const getY1 = (val: number) => padding.top + chartHeight - ((val - minT) / (maxT - minT)) * chartHeight;
+                      const getY2 = (val: number) => padding.top + chartHeight - ((val - minHR) / (maxHR - minHR)) * chartHeight;
 
                       const tPoints = points.map((p, idx) => ({ x: getX(idx), y: getY1(p.temperature) }));
                       const hrPoints = points.map((p, idx) => ({ x: getX(idx), y: getY2(p.heart_rate) }));
 
-                      const yNormalTMax = getY1(39.2);
-                      const yNormalTMin = getY1(38.0);
+                      const yNormalTMax = Math.max(padding.top, Math.min(padding.top + chartHeight, getY1(39.2)));
+                      const yNormalTMin = Math.max(padding.top, Math.min(padding.top + chartHeight, getY1(38.0)));
 
                       return (
                         <div style={{ position: 'relative', width: '100%', overflow: 'visible' }}>
@@ -1832,7 +1939,7 @@ export default function HealthDashboardPage() {
                             </defs>
 
                             {/* Normal body temperature green background box */}
-                            <rect x={padding.left} y={yNormalTMax} width={chartWidth} height={Math.max(0, yNormalTMin - yNormalTMax)} fill="rgba(16, 185, 129, 0.05)" />
+                            <rect x={padding.left} y={yNormalTMax} width={chartWidth} height={Math.max(0, yNormalTMin - yNormalTMax)} fill="rgba(16, 185, 129, 0.05)" style={{ pointerEvents: 'none' }} />
                             <line x1={padding.left} y1={yNormalTMax} x2={padding.left + chartWidth} y2={yNormalTMax} stroke="rgba(16, 185, 129, 0.15)" strokeDasharray="3 3" />
                             <line x1={padding.left} y1={yNormalTMin} x2={padding.left + chartWidth} y2={yNormalTMin} stroke="rgba(16, 185, 129, 0.15)" strokeDasharray="3 3" />
                             <text x={padding.left + 8} y={yNormalTMax + 12} fill="#10B981" fontSize="7.5" fontWeight="700" opacity="0.6">
@@ -1956,9 +2063,29 @@ export default function HealthDashboardPage() {
 
               {/* Vaccine Card */}
               <div className="card" style={{ padding: '20px' }}>
-                <h3 className="card-title" style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Syringe size={16} /> Lịch tiêm phòng & Nhắc lịch
-                </h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <h3 className="card-title" style={{ fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
+                    <Syringe size={16} /> Lịch tiêm phòng & Nhắc lịch
+                  </h3>
+                  <button 
+                    className="btn btn-sm btn-outline" 
+                    onClick={() => {
+                      setEditingVaccineId(null);
+                      setActiveTab('vaccine');
+                      setVaccineForm({
+                        vaccineName: '',
+                        administeredDate: new Date().toISOString().split('T')[0],
+                        nextDueDate: '',
+                        notes: '',
+                        healthStatus: selectedPet?.health_status || 'NORMAL'
+                      });
+                      setShowModal(true);
+                    }}
+                    style={{ padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}
+                  >
+                    <Plus size={13} /> Thêm vaccine
+                  </button>
+                </div>
                 
                 {vaccineRecords.length === 0 ? (
                   <p style={{ color: 'var(--text-3)', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
@@ -2048,23 +2175,149 @@ export default function HealthDashboardPage() {
                               {badgeText}
                             </span>
                             
-                            <button 
-                              onClick={() => handleDeleteVaccine(vac._id)}
-                              style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: '#EF4444',
-                                cursor: 'pointer',
-                                padding: '4px',
-                                fontSize: 12,
-                                fontWeight: 600,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 4
-                              }}
-                            >
-                              <Trash2 size={13} /> Hủy
-                            </button>
+                            {hasDueDate && (
+                              <button 
+                                onClick={() => handleCompleteVaccine(vac)}
+                                title="Đánh dấu đã hoàn thành"
+                                style={{
+                                  background: 'var(--primary-bg)',
+                                  border: 'none',
+                                  borderRadius: '8px',
+                                  color: 'var(--primary)',
+                                  cursor: 'pointer',
+                                  width: 28,
+                                  height: 28,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'all 0.2s',
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(0.95)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.filter = 'none'; }}
+                              >
+                                <CheckCircle2 size={15} />
+                              </button>
+                            )}
+
+                            {/* 3-dots Action Menu */}
+                            <div style={{ position: 'relative' }}>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveMenuId(activeMenuId === vac._id ? null : vac._id);
+                                }}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  color: 'var(--text-3)',
+                                  cursor: 'pointer',
+                                  width: 28,
+                                  height: 28,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'all 0.2s'
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface3)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                              >
+                                <MoreVertical size={16} />
+                              </button>
+
+                              {activeMenuId === vac._id && (
+                                <>
+                                  <div 
+                                    onClick={() => setActiveMenuId(null)}
+                                    style={{
+                                      position: 'fixed',
+                                      top: 0,
+                                      left: 0,
+                                      right: 0,
+                                      bottom: 0,
+                                      zIndex: 99,
+                                      background: 'transparent'
+                                    }}
+                                  />
+                                  <div style={{
+                                    position: 'absolute',
+                                    right: 0,
+                                    top: '100%',
+                                    marginTop: 4,
+                                    background: 'var(--surface)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '8px',
+                                    boxShadow: 'var(--shadow-md)',
+                                    zIndex: 100,
+                                    minWidth: '120px',
+                                    overflow: 'hidden',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                  }}>
+                                    <button 
+                                      onClick={() => {
+                                        setActiveMenuId(null);
+                                        setEditingVaccineId(vac._id);
+                                        setActiveTab('vaccine');
+                                        setVaccineForm({
+                                          vaccineName: vac.value,
+                                          administeredDate: new Date(vac.date).toISOString().split('T')[0],
+                                          nextDueDate: vac.next_due_date ? new Date(vac.next_due_date).toISOString().split('T')[0] : '',
+                                          notes: vac.note || '',
+                                          healthStatus: selectedPet?.health_status || 'NORMAL'
+                                        });
+                                        setShowModal(true);
+                                      }}
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 8,
+                                        padding: '8px 12px',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: 'var(--text-2)',
+                                        fontSize: '12.5px',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        textAlign: 'left',
+                                        width: '100%',
+                                        transition: 'background 0.15s'
+                                      }}
+                                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface2)'; }}
+                                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                                    >
+                                      <Edit2 size={13} color="var(--primary)" /> Cập nhật
+                                    </button>
+
+                                    <button 
+                                      onClick={() => {
+                                        setActiveMenuId(null);
+                                        handleDeleteVaccine(vac._id);
+                                      }}
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 8,
+                                        padding: '8px 12px',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: '#EF4444',
+                                        fontSize: '12.5px',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        textAlign: 'left',
+                                        width: '100%',
+                                        transition: 'background 0.15s'
+                                      }}
+                                      onMouseEnter={(e) => { e.currentTarget.style.background = '#FFF0F0'; }}
+                                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                                    >
+                                      <Trash2 size={13} /> Hủy
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -2188,14 +2441,15 @@ export default function HealthDashboardPage() {
 
       {/* Modal - Keep existing form logic */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="modal-overlay" onClick={() => { setShowModal(false); setEditingVaccineId(null); }}>
           <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px', width: '100%', position: 'relative' }}>
-            <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
-            <h2 className="modal-title">Thêm hồ sơ sức khỏe</h2>
+            <button className="modal-close" onClick={() => { setShowModal(false); setEditingVaccineId(null); }}>×</button>
+            <h2 className="modal-title">{editingVaccineId ? 'Cập nhật lịch tiêm phòng' : 'Thêm hồ sơ sức khỏe'}</h2>
             <p style={{ color:'var(--text-3)', fontSize:13, marginBottom:20 }}>Cho {selectedPet?.name}</p>
 
             {/* Tab Header */}
-            <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+            {!editingVaccineId && (
+              <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
               <button 
                 className={`btn ${activeTab === 'log' ? 'btn-primary' : 'btn-outline'}`} 
                 style={{ flex: 1, padding: '8px 16px', borderRadius: '12px', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
@@ -2211,6 +2465,7 @@ export default function HealthDashboardPage() {
                 <Syringe size={16} style={{ transform: 'rotate(-45deg)' }} /> Vaccine
               </button>
             </div>
+            )}
 
             {activeTab === 'log' ? (
               <>
@@ -2372,7 +2627,7 @@ export default function HealthDashboardPage() {
             )}
 
             <div style={{ display:'flex', gap:12, marginTop: 20 }}>
-              <button className="btn btn-outline" style={{ flex:1 }} onClick={() => setShowModal(false)}>Huỷ</button>
+              <button className="btn btn-outline" style={{ flex:1 }} onClick={() => { setShowModal(false); setEditingVaccineId(null); }}>Huỷ</button>
               <button className="btn btn-primary" style={{ flex:2 }} onClick={handleAdd} disabled={saving}>
                 {saving ? <><div className="spinner"/>Đang lưu...</> : 'Lưu hồ sơ'}
               </button>

@@ -70,6 +70,107 @@ const seedDefaultKnowledge = async () => {
     }
 };
 
+const getPersonalizedQuest = (pet, startOfDay, latestHealthLog, ageInMonths) => {
+    if (latestHealthLog && latestHealthLog.temperature && latestHealthLog.temperature > 39.2) {
+        return {
+            pet_id: pet._id,
+            assigned_date: startOfDay,
+            title: `Hạ nhiệt và bù nước cho ${pet.name}`,
+            description: `Thân nhiệt gần nhất là ${latestHealthLog.temperature}°C (Cao). Hãy cho bé nằm phòng mát, bổ sung Oresol pha loãng và chườm ấm nách/bẹn.`,
+            category: 'HEALTH_CARE',
+            status: 'PENDING'
+        };
+    } else if (latestHealthLog && latestHealthLog.heart_rate && (
+        (pet.species === 'DOG' && latestHealthLog.heart_rate > 140) ||
+        (pet.species === 'CAT' && latestHealthLog.heart_rate > 220)
+    )) {
+        return {
+            pet_id: pet._id,
+            assigned_date: startOfDay,
+            title: `Thư giãn giảm nhịp tim cho ${pet.name}`,
+            description: `Nhịp tim gần nhất đo được là ${latestHealthLog.heart_rate} bpm (Cao). Cần tạo không gian yên tĩnh, tránh tiếng ồn lớn và vuốt ve bé nhẹ nhàng.`,
+            category: 'HEALTH_CARE',
+            status: 'PENDING'
+        };
+    } else if (pet.health_status === 'OVERWEIGHT' || (latestHealthLog && pet.weight && latestHealthLog.weight > pet.weight * 1.15)) {
+        if (pet.species === 'DOG') {
+            return {
+                pet_id: pet._id,
+                assigned_date: startOfDay,
+                title: `Đi bộ nhanh giảm cân cho ${pet.name}`,
+                description: `Thực hiện bài đi bộ nhanh/chạy bộ kéo dài 25-30 phút để đốt mỡ thừa. Giảm nhẹ 10% lượng hạt ăn tối.`,
+                category: 'HEALTH_CARE',
+                status: 'PENDING'
+            };
+        } else {
+            return {
+                pet_id: pet._id,
+                assigned_date: startOfDay,
+                title: `Vận động giảm cân cho ${pet.name}`,
+                description: `Chơi đùa cùng ${pet.name} bằng cần câu lông vũ hoặc đèn laser 15-20 phút để kích thích bé nhảy và chạy giảm mỡ.`,
+                category: 'HEALTH_CARE',
+                status: 'PENDING'
+            };
+        }
+    } else if (pet.health_status === 'UNDERWEIGHT') {
+        return {
+            pet_id: pet._id,
+            assigned_date: startOfDay,
+            title: `Bồi bổ bữa phụ cho ${pet.name}`,
+            description: `Bổ sung bữa phụ giàu đạm (như ức gà luộc xé nhỏ hoặc pate phục hồi) kèm men tiêu hóa để hỗ trợ tăng cân.`,
+            category: 'NUTRITION',
+            status: 'PENDING'
+        };
+    } else if (ageInMonths <= 12) {
+        return {
+            pet_id: pet._id,
+            assigned_date: startOfDay,
+            title: `Bổ sung Canxi & Tập thói quen`,
+            description: `Bổ sung sữa dinh dưỡng hoặc Canxi Nano vào bữa sáng. Tập phản xạ lăn hoặc bắt bóng nhẹ nhàng cho bé cưng đang phát triển.`,
+            category: 'HEALTH_CARE',
+            status: 'PENDING'
+        };
+    } else if (ageInMonths >= 96) {
+        return {
+            pet_id: pet._id,
+            assigned_date: startOfDay,
+            title: `Chăm sóc xương khớp cho ${pet.name}`,
+            description: `Bổ sung Glucosamine hoặc Omega-3 vào bữa ăn. Thực hiện xoa bóp, mát-xa nhẹ các khớp chân giúp ${pet.name} giảm nhức mỏi khớp.`,
+            category: 'HEALTH_CARE',
+            status: 'PENDING'
+        };
+    } else if (!latestHealthLog || (startOfDay - new Date(latestHealthLog.measured_at)) > 7 * 24 * 60 * 60 * 1000) {
+        return {
+            pet_id: pet._id,
+            assigned_date: startOfDay,
+            title: `Đo lường sức khỏe cho ${pet.name}`,
+            description: `Đã hơn 7 ngày chưa cập nhật chỉ số sức khỏe của ${pet.name}. Hãy cân cân nặng, kiểm tra nhịp tim và lưu vào Health Dashboard hôm nay nhé.`,
+            category: 'HEALTH_CARE',
+            status: 'PENDING'
+        };
+    } else {
+        if (pet.species === 'DOG') {
+            return {
+                pet_id: pet._id,
+                assigned_date: startOfDay,
+                title: `Huấn luyện thể lực nâng cao cho ${pet.name}`,
+                description: `Dành 15-20 phút chơi ném bóng hoặc chạy bộ vượt chướng ngại vật cùng ${pet.name} để duy trì cơ bắp săn chắc và giải tỏa năng lượng.`,
+                category: 'TRAINING',
+                status: 'PENDING'
+            };
+        } else {
+            return {
+                pet_id: pet._id,
+                assigned_date: startOfDay,
+                title: `Mát-xa thư giãn giảm stress cho ${pet.name}`,
+                description: `Thực hiện mát-xa nhẹ nhàng vùng đầu, cổ và lưng của ${pet.name} trong 10-15 phút giúp tăng cường tuần hoàn máu và thắt chặt tình cảm.`,
+                category: 'DAILY_ROUTINE',
+                status: 'PENDING'
+            };
+        }
+    }
+};
+
 const ensureDailyQuestsForPet = async (pet, date = new Date(), reqTimezone = 'Asia/Ho_Chi_Minh') => {
     const userNow = date ? moment.tz(date, reqTimezone) : moment.tz(reqTimezone);
     const startOfDay = userNow.clone().startOf('day').toDate();
@@ -124,8 +225,13 @@ const ensureDailyQuestsForPet = async (pet, date = new Date(), reqTimezone = 'As
             'Bữa sáng dinh dưỡng',
             'Bữa trưa dinh dưỡng',
             'Bữa tối ấm cúng',
+            'Thay nước uống sạch',
+            'Chải lông giảm rụng',
+            'Vệ sinh răng miệng',
             'Đi dạo buổi sáng',
-            'Dọn dẹp khay vệ sinh'
+            'Huấn luyện khẩu lệnh',
+            'Dọn dẹp khay vệ sinh',
+            'Chơi đùa & Tương tác'
         ];
         const hasVipQuests = quests.some(q => q.source_knowledge_id || !standardTitles.includes(q.title));
         
@@ -137,93 +243,7 @@ const ensureDailyQuestsForPet = async (pet, date = new Date(), reqTimezone = 'As
             const ageInMonths = Math.max(0, Math.floor((startOfDay - dob) / (1000 * 60 * 60 * 24 * 30.4375)));
             const latestHealthLog = await HealthLog.findOne({ pet_id: pet._id }).sort({ measured_at: -1 });
 
-            let personalizedQuest = null;
-
-            if (latestHealthLog && latestHealthLog.temperature && latestHealthLog.temperature > 39.2) {
-                // Trường hợp sốt
-                personalizedQuest = {
-                    pet_id: pet._id,
-                    assigned_date: startOfDay,
-                    title: `Hạ nhiệt và bù nước cho ${pet.name}`,
-                    description: `Thân nhiệt gần nhất là ${latestHealthLog.temperature}°C (Cao). Hãy cho bé nằm phòng mát, bổ sung Oresol pha loãng và chườm ấm nách/bẹn.`,
-                    category: 'HEALTH_CARE',
-                    status: 'PENDING'
-                };
-            } else if (latestHealthLog && latestHealthLog.heart_rate && (
-                (pet.species === 'DOG' && latestHealthLog.heart_rate > 140) ||
-                (pet.species === 'CAT' && latestHealthLog.heart_rate > 220)
-            )) {
-                // Trường hợp nhịp tim nhanh bất thường lúc nghỉ
-                personalizedQuest = {
-                    pet_id: pet._id,
-                    assigned_date: startOfDay,
-                    title: `Thư giãn giảm nhịp tim cho ${pet.name}`,
-                    description: `Nhịp tim gần nhất đo được là ${latestHealthLog.heart_rate} bpm (Cao). Cần tạo không gian yên tĩnh, tránh tiếng ồn lớn và vuốt ve bé nhẹ nhàng.`,
-                    category: 'HEALTH_CARE',
-                    status: 'PENDING'
-                };
-            } else if (pet.health_status === 'OVERWEIGHT' || (latestHealthLog && pet.weight && latestHealthLog.weight > pet.weight * 1.15)) {
-                // Thừa cân béo phì
-                if (pet.species === 'DOG') {
-                    personalizedQuest = {
-                        pet_id: pet._id,
-                        assigned_date: startOfDay,
-                        title: `Đi bộ nhanh giảm cân cho ${pet.name}`,
-                        description: `Thực hiện bài đi bộ nhanh/chạy bộ kéo dài 25-30 phút để đốt mỡ thừa. Giảm nhẹ 10% lượng hạt ăn tối.`,
-                        category: 'HEALTH_CARE',
-                        status: 'PENDING'
-                    };
-                } else {
-                    personalizedQuest = {
-                        pet_id: pet._id,
-                        assigned_date: startOfDay,
-                        title: `Vận động giảm cân cho ${pet.name}`,
-                        description: `Chơi đùa cùng ${pet.name} bằng cần câu lông vũ hoặc đèn laser 15-20 phút để kích thích bé nhảy và chạy giảm mỡ.`,
-                        category: 'HEALTH_CARE',
-                        status: 'PENDING'
-                    };
-                }
-            } else if (pet.health_status === 'UNDERWEIGHT') {
-                // Thiếu cân
-                personalizedQuest = {
-                    pet_id: pet._id,
-                    assigned_date: startOfDay,
-                    title: `Bồi bổ bữa phụ cho ${pet.name}`,
-                    description: `Bổ sung bữa phụ giàu đạm (như ức gà luộc xé nhỏ hoặc pate phục hồi) kèm men tiêu hóa để hỗ trợ tăng cân.`,
-                    category: 'NUTRITION',
-                    status: 'PENDING'
-                };
-            } else if (ageInMonths <= 12) {
-                // Thú non (Dưới 1 tuổi)
-                personalizedQuest = {
-                    pet_id: pet._id,
-                    assigned_date: startOfDay,
-                    title: `Bổ sung Canxi & Tập thói quen`,
-                    description: `Bổ sung sữa dinh dưỡng hoặc Canxi Nano vào bữa sáng. Tập phản xạ lăn hoặc bắt bóng nhẹ nhàng cho bé cưng đang phát triển.`,
-                    category: 'HEALTH_CARE',
-                    status: 'PENDING'
-                };
-            } else if (ageInMonths >= 96) {
-                // Thú già (Trên 8 tuổi)
-                personalizedQuest = {
-                    pet_id: pet._id,
-                    assigned_date: startOfDay,
-                    title: `Chăm sóc xương khớp cho ${pet.name}`,
-                    description: `Bổ sung Glucosamine hoặc Omega-3 vào bữa ăn. Thực hiện xoa bóp, mát-xa nhẹ các khớp chân giúp ${pet.name} giảm nhức mỏi khớp.`,
-                    category: 'HEALTH_CARE',
-                    status: 'PENDING'
-                };
-            } else if (!latestHealthLog || (startOfDay - new Date(latestHealthLog.measured_at)) > 7 * 24 * 60 * 60 * 1000) {
-                // Quá 7 ngày chưa đo sức khỏe
-                personalizedQuest = {
-                    pet_id: pet._id,
-                    assigned_date: startOfDay,
-                    title: `Đo lường sức khỏe cho ${pet.name}`,
-                    description: `Đã hơn 7 ngày chưa cập nhật chỉ số sức khỏe của ${pet.name}. Hãy cân cân nặng, kiểm tra nhịp tim và lưu vào Health Dashboard hôm nay nhé.`,
-                    category: 'HEALTH_CARE',
-                    status: 'PENDING'
-                };
-            }
+            const personalizedQuest = getPersonalizedQuest(pet, startOfDay, latestHealthLog, ageInMonths);
 
             if (personalizedQuest) {
                 vipQuestsToCreate.push(personalizedQuest);
@@ -434,93 +454,7 @@ const ensureDailyQuestsForPet = async (pet, date = new Date(), reqTimezone = 'As
             const ageInMonths = Math.max(0, Math.floor((startOfDay - dob) / (1000 * 60 * 60 * 24 * 30.4375)));
             const latestHealthLog = await HealthLog.findOne({ pet_id: pet._id }).sort({ measured_at: -1 });
 
-            let personalizedQuest = null;
-
-            if (latestHealthLog && latestHealthLog.temperature && latestHealthLog.temperature > 39.2) {
-                // Trường hợp sốt
-                personalizedQuest = {
-                    pet_id: pet._id,
-                    assigned_date: startOfDay,
-                    title: `Hạ nhiệt và bù nước cho ${pet.name}`,
-                    description: `Thân nhiệt gần nhất là ${latestHealthLog.temperature}°C (Cao). Hãy cho bé nằm phòng mát, bổ sung Oresol pha loãng và chườm ấm nách/bẹn.`,
-                    category: 'HEALTH_CARE',
-                    status: 'PENDING'
-                };
-            } else if (latestHealthLog && latestHealthLog.heart_rate && (
-                (pet.species === 'DOG' && latestHealthLog.heart_rate > 140) ||
-                (pet.species === 'CAT' && latestHealthLog.heart_rate > 220)
-            )) {
-                // Trường hợp nhịp tim nhanh bất thường lúc nghỉ
-                personalizedQuest = {
-                    pet_id: pet._id,
-                    assigned_date: startOfDay,
-                    title: `Thư giãn giảm nhịp tim cho ${pet.name}`,
-                    description: `Nhịp tim gần nhất đo được là ${latestHealthLog.heart_rate} bpm (Cao). Cần tạo không gian yên tĩnh, tránh tiếng ồn lớn và vuốt ve bé nhẹ nhàng.`,
-                    category: 'HEALTH_CARE',
-                    status: 'PENDING'
-                };
-            } else if (pet.health_status === 'OVERWEIGHT' || (latestHealthLog && pet.weight && latestHealthLog.weight > pet.weight * 1.15)) {
-                // Thừa cân béo phì
-                if (pet.species === 'DOG') {
-                    personalizedQuest = {
-                        pet_id: pet._id,
-                        assigned_date: startOfDay,
-                        title: `Đi bộ nhanh giảm cân cho ${pet.name}`,
-                        description: `Thực hiện bài đi bộ nhanh/chạy bộ kéo dài 25-30 phút để đốt mỡ thừa. Giảm nhẹ 10% lượng hạt ăn tối.`,
-                        category: 'HEALTH_CARE',
-                        status: 'PENDING'
-                    };
-                } else {
-                    personalizedQuest = {
-                        pet_id: pet._id,
-                        assigned_date: startOfDay,
-                        title: `Vận động giảm cân cho ${pet.name}`,
-                        description: `Chơi đùa cùng ${pet.name} bằng cần câu lông vũ hoặc đèn laser 15-20 phút để kích thích bé nhảy và chạy giảm mỡ.`,
-                        category: 'HEALTH_CARE',
-                        status: 'PENDING'
-                    };
-                }
-            } else if (pet.health_status === 'UNDERWEIGHT') {
-                // Thiếu cân
-                personalizedQuest = {
-                    pet_id: pet._id,
-                    assigned_date: startOfDay,
-                    title: `Bồi bổ bữa phụ cho ${pet.name}`,
-                    description: `Bổ sung bữa phụ giàu đạm (như ức gà luộc xé nhỏ hoặc pate phục hồi) kèm men tiêu hóa để hỗ trợ tăng cân.`,
-                    category: 'NUTRITION',
-                    status: 'PENDING'
-                };
-            } else if (ageInMonths <= 12) {
-                // Thú non (Dưới 1 tuổi)
-                personalizedQuest = {
-                    pet_id: pet._id,
-                    assigned_date: startOfDay,
-                    title: `Bổ sung Canxi & Tập thói quen`,
-                    description: `Bổ sung sữa dinh dưỡng hoặc Canxi Nano vào bữa sáng. Tập phản xạ lăn hoặc bắt bóng nhẹ nhàng cho bé cưng đang phát triển.`,
-                    category: 'HEALTH_CARE',
-                    status: 'PENDING'
-                };
-            } else if (ageInMonths >= 96) {
-                // Thú già (Trên 8 tuổi)
-                personalizedQuest = {
-                    pet_id: pet._id,
-                    assigned_date: startOfDay,
-                    title: `Chăm sóc xương khớp cho ${pet.name}`,
-                    description: `Bổ sung Glucosamine hoặc Omega-3 vào bữa ăn. Thực hiện xoa bóp, mát-xa nhẹ các khớp chân giúp ${pet.name} giảm nhức mỏi khớp.`,
-                    category: 'HEALTH_CARE',
-                    status: 'PENDING'
-                };
-            } else if (!latestHealthLog || (startOfDay - new Date(latestHealthLog.measured_at)) > 7 * 24 * 60 * 60 * 1000) {
-                // Quá 7 ngày chưa đo sức khỏe
-                personalizedQuest = {
-                    pet_id: pet._id,
-                    assigned_date: startOfDay,
-                    title: `Đo lường sức khỏe cho ${pet.name}`,
-                    description: `Đã hơn 7 ngày chưa cập nhật chỉ số sức khỏe của ${pet.name}. Hãy cân cân nặng, kiểm tra nhịp tim và lưu vào Health Dashboard hôm nay nhé.`,
-                    category: 'HEALTH_CARE',
-                    status: 'PENDING'
-                };
-            }
+            const personalizedQuest = getPersonalizedQuest(pet, startOfDay, latestHealthLog, ageInMonths);
 
             if (personalizedQuest) {
                 defaultQuests.push(personalizedQuest);
