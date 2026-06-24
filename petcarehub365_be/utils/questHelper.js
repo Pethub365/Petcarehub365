@@ -559,13 +559,12 @@ const ensureDailyQuestsForPet = async (pet, date = new Date(), reqTimezone = 'As
     }
 
     // Tự động kiểm tra và chuyển các nhiệm vụ PENDING quá hạn thành MISSED
-    const now = new Date();
-    const isToday = now.getFullYear() === startOfDay.getFullYear() &&
-        now.getMonth() === startOfDay.getMonth() &&
-        now.getDate() === startOfDay.getDate();
+    const userCurrent = moment.tz(reqTimezone);
+    const isToday = userNow.format('YYYY-MM-DD') === userCurrent.format('YYYY-MM-DD');
+    const isPast = userNow.isBefore(userCurrent, 'day');
 
     // Nếu là ngày cũ, giả định giờ hiện tại là 24 để đánh dấu MISSED hết các quest PENDING quá hạn
-    const currentHour = isToday ? now.getHours() : 24;
+    const currentHour = isToday ? userCurrent.hour() : (isPast ? 24 : -1);
     let hasUpdates = false;
 
     for (let i = 0; i < quests.length; i++) {
@@ -604,8 +603,7 @@ const ensureDailyQuestsForPet = async (pet, date = new Date(), reqTimezone = 'As
                 qObj.isLocked = true;
                 if (!qObj.lockMessage) {
                     qObj.lockMessage = `Bắt đầu lúc ${qObj.valid_from_hour}:00`;
-                    const unlocks = new Date();
-                    unlocks.setHours(qObj.valid_from_hour, 0, 0, 0);
+                    const unlocks = userNow.clone().hour(qObj.valid_from_hour).minute(0).second(0).millisecond(0);
                     qObj.unlocksAt = unlocks.toISOString();
                 }
             }
