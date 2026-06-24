@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Home, PawPrint, CheckSquare, Heart, Trophy, CreditCard,
   Bell, Settings, Users, Star, LogOut, ChevronRight,
@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationContext';
+import FeedbackModal from './FeedbackModal';
 
 const navItems = [
   { to: '/',                    icon: Home,        label: 'Trang chủ',     end: true },
@@ -30,6 +31,7 @@ export default function AppShell() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
   const emailLower = user?.email?.toLowerCase() || '';
   const isOnlyAdmin = emailLower.includes('admin');
@@ -47,6 +49,24 @@ export default function AppShell() {
     await logout();
     navigate('/login');
   };
+
+  useEffect(() => {
+    if (isOnlyAdmin) return;
+
+    const isSubmitted = localStorage.getItem('feedback_submitted');
+    const isOptedOutSession = sessionStorage.getItem('feedback_opt_out_session');
+    const isSnoozedSession = sessionStorage.getItem('feedback_snoozed_session');
+
+    if (isSubmitted || isOptedOutSession || isSnoozedSession) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setShowFeedbackModal(true);
+    }, 60000); // 1 minute
+
+    return () => clearTimeout(timer);
+  }, [isOnlyAdmin]);
 
   return (
     <div className="app-shell">
@@ -208,6 +228,10 @@ export default function AppShell() {
           #sidebar-close-btn { display: flex !important; }
         }
       `}</style>
+
+      {showFeedbackModal && (
+        <FeedbackModal onClose={() => setShowFeedbackModal(false)} />
+      )}
     </div>
   );
 }

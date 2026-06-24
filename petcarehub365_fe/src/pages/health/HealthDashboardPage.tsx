@@ -20,6 +20,8 @@ export default function HealthDashboardPage() {
   const [editingVaccineId, setEditingVaccineId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'log' | 'vaccine'>('log');
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [timelinePage, setTimelinePage] = useState(1);
+  const timelineLimit = 6;
   
   // Chart metric tabs toggle
   const [selectedTab, setSelectedTab] = useState<'WEIGHT_ACTIVITY' | 'NUTRITION_WATER' | 'ACTIVITY_SLEEP' | 'VITALS'>('WEIGHT_ACTIVITY');
@@ -61,6 +63,10 @@ export default function HealthDashboardPage() {
     notes: '',
     healthStatus: 'NORMAL'
   });
+
+  useEffect(() => {
+    setTimelinePage(1);
+  }, [selectedPet?._id]);
 
   useEffect(() => {
     const load = async () => {
@@ -2338,93 +2344,132 @@ export default function HealthDashboardPage() {
                   Lịch sử các cập nhật y khoa, đo lường sinh lý và tiêm vaccine của {selectedPet.name}
                 </p>
 
-                {getTimelineItems().length === 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '250px', color: 'var(--text-4)' }}>
-                    <Calendar size={40} opacity={0.3} style={{ marginBottom: 10 }} />
-                    <p style={{ fontSize: 13, fontWeight: 500 }}>Chưa có sự kiện nào được ghi nhận.</p>
-                  </div>
-                ) : (
-                  <div style={{ position: 'relative', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                    {/* Vertical track line */}
-                    <div style={{
-                      position: 'absolute',
-                      left: '7px',
-                      top: '8px',
-                      bottom: '8px',
-                      width: '2px',
-                      background: 'var(--border)',
-                      zIndex: 1
-                    }} />
+                {(() => {
+                  const timelineItems = getTimelineItems();
+                  const totalTimelinePages = Math.ceil(timelineItems.length / timelineLimit);
+                  
+                  if (timelineItems.length === 0) {
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '250px', color: 'var(--text-4)' }}>
+                        <Calendar size={40} opacity={0.3} style={{ marginBottom: 10 }} />
+                        <p style={{ fontSize: 13, fontWeight: 500 }}>Chưa có sự kiện nào được ghi nhận.</p>
+                      </div>
+                    );
+                  }
 
-                    {getTimelineItems().slice(0, 15).map((item) => {
-                      const isLog = item.type === 'LOG';
-                      const color = isLog ? getHealthStatusColor(item.status) : '#9B51E0';
-                      const bg = isLog ? `${getHealthStatusColor(item.status)}15` : '#F3E5F5';
-                      
-                      return (
-                        <div key={item.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          {/* Circle Indicator */}
-                          <div style={{
-                            position: 'absolute',
-                            left: '-20px',
-                            top: '4px',
-                            width: '16px',
-                            height: '16px',
-                            borderRadius: '50%',
-                            background: color,
-                            border: '3.5px solid var(--surface)',
-                            zIndex: 2,
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                          }} />
+                  const paginatedTimelineItems = timelineItems.slice((timelinePage - 1) * timelineLimit, timelinePage * timelineLimit);
 
-                          {/* Event card details */}
-                          <div style={{
-                            background: 'var(--surface2)',
-                            padding: '12px 14px',
-                            borderRadius: '12px',
-                            border: '1px solid var(--border)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '4px'
-                          }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase' }}>
-                                {item.date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                              </span>
-                              <span style={{
-                                fontSize: '9.5px',
-                                fontWeight: 800,
-                                padding: '2px 8px',
-                                borderRadius: '8px',
-                                background: bg,
-                                color: color
+                  return (
+                    <>
+                      <div style={{ position: 'relative', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                        {/* Vertical track line */}
+                        <div style={{
+                          position: 'absolute',
+                          left: '7px',
+                          top: '8px',
+                          bottom: '8px',
+                          width: '2px',
+                          background: 'var(--border)',
+                          zIndex: 1
+                        }} />
+
+                        {paginatedTimelineItems.map((item) => {
+                          const isLog = item.type === 'LOG';
+                          const color = isLog ? getHealthStatusColor(item.status) : '#9B51E0';
+                          const bg = isLog ? `${getHealthStatusColor(item.status)}15` : '#F3E5F5';
+                          
+                          return (
+                            <div key={item.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              {/* Circle Indicator */}
+                              <div style={{
+                                position: 'absolute',
+                                left: '-20px',
+                                top: '4px',
+                                width: '16px',
+                                height: '16px',
+                                borderRadius: '50%',
+                                background: color,
+                                border: '3.5px solid var(--surface)',
+                                zIndex: 2,
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                              }} />
+
+                              {/* Event card details */}
+                              <div style={{
+                                background: 'var(--surface2)',
+                                padding: '12px 14px',
+                                borderRadius: '12px',
+                                border: '1px solid var(--border)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '4px'
                               }}>
-                                {isLog ? translateHealthStatus(item.status) : 'Vaccine'}
-                              </span>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase' }}>
+                                    {item.date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                  </span>
+                                  <span style={{
+                                    fontSize: '9.5px',
+                                    fontWeight: 800,
+                                    padding: '2px 8px',
+                                    borderRadius: '8px',
+                                    background: bg,
+                                    color: color
+                                  }}>
+                                    {isLog ? translateHealthStatus(item.status) : 'Vaccine'}
+                                  </span>
+                                </div>
+                                <strong style={{ fontSize: '12.5px', color: 'var(--text)' }}>
+                                  {item.title}
+                                </strong>
+                                {isLog ? (
+                                  <div style={{ fontSize: '11px', color: 'var(--text-2)' }}>
+                                    Cân nặng đo được: <strong>{item.weight} kg</strong>
+                                  </div>
+                                ) : item.next_due_date ? (
+                                  <div style={{ fontSize: '11px', color: 'var(--text-2)' }}>
+                                    Lịch nhắc lại: <strong>{item.next_due_date.toLocaleDateString('vi-VN')}</strong>
+                                  </div>
+                                ) : null}
+                                {item.note && (
+                                  <div style={{ fontSize: '10.5px', color: 'var(--text-3)', fontStyle: 'italic', borderTop: '1px dashed var(--border)', paddingTop: 4, marginTop: 4 }}>
+                                    "{item.note}"
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            <strong style={{ fontSize: '12.5px', color: 'var(--text)' }}>
-                              {item.title}
-                            </strong>
-                            {isLog ? (
-                              <div style={{ fontSize: '11px', color: 'var(--text-2)' }}>
-                                Cân nặng đo được: <strong>{item.weight} kg</strong>
-                              </div>
-                            ) : item.next_due_date ? (
-                              <div style={{ fontSize: '11px', color: 'var(--text-2)' }}>
-                                Lịch nhắc lại: <strong>{item.next_due_date.toLocaleDateString('vi-VN')}</strong>
-                              </div>
-                            ) : null}
-                            {item.note && (
-                              <div style={{ fontSize: '10.5px', color: 'var(--text-3)', fontStyle: 'italic', borderTop: '1px dashed var(--border)', paddingTop: 4, marginTop: 4 }}>
-                                "{item.note}"
-                              </div>
-                            )}
+                          );
+                        })}
+                      </div>
+
+                      {totalTimelinePages > 1 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+                          <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
+                            Trang <strong>{timelinePage}</strong> / <strong>{totalTimelinePages}</strong>
+                          </span>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button 
+                              className="btn btn-outline btn-sm" 
+                              onClick={() => setTimelinePage(prev => Math.max(1, prev - 1))} 
+                              disabled={timelinePage <= 1}
+                              style={{ padding: '4px 12px', fontSize: 12 }}
+                            >
+                              Trước
+                            </button>
+                            <button 
+                              className="btn btn-outline btn-sm" 
+                              onClick={() => setTimelinePage(prev => Math.min(totalTimelinePages, prev + 1))} 
+                              disabled={timelinePage >= totalTimelinePages}
+                              style={{ padding: '4px 12px', fontSize: 12 }}
+                            >
+                              Sau
+                            </button>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </div>
 

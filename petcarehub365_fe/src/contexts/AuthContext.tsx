@@ -73,7 +73,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
           setUser(JSON.parse(userRaw));
           setIsAuthenticated(true);
-          setLoading(false); // Unblock rendering instantly using local cached data
           try {
             const res = await authApi.getMe() as any;
             if (res?.success) {

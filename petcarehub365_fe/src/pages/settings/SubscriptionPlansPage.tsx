@@ -28,9 +28,18 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
     setLoading(true);
     try {
       const [plansRes, subRes, txRes] = await Promise.all([
-        subscriptionApi.getPlans(),
-        subscriptionApi.getMySubscription(),
-        subscriptionApi.getTransactions(),
+        subscriptionApi.getPlans().catch(err => {
+          console.error('Lỗi khi tải danh sách gói:', err);
+          return { success: false, data: { plans: [] } };
+        }),
+        subscriptionApi.getMySubscription().catch(err => {
+          console.error('Lỗi khi tải gói của tôi:', err);
+          return { success: false, data: { subscription: null } };
+        }),
+        subscriptionApi.getTransactions().catch(err => {
+          console.error('Lỗi khi tải lịch sử giao dịch:', err);
+          return { success: false, data: { transactions: [] } };
+        }),
       ]) as any[];
 
       if (plansRes?.success) setPlans(plansRes.data.plans || []);

@@ -20,6 +20,7 @@ const HealthLog = require('./HealthLog');
 const Vaccine = require('./Vaccine');
 const Subscription = require('./Subscription');
 const PaymentTransaction = require('./PaymentTransaction');
+const Feedback = require('./Feedback');
 
 // TODO: Add more domain-specific models as you build the project
 // e.g., VetClinic, Appointment, Product, Order, Cart, etc.
@@ -48,4 +49,5 @@ module.exports = {
     Vaccine,
     Subscription,
     PaymentTransaction,
+    Feedback,
 };

@@ -58,28 +58,36 @@ exports.getStats = catchAsync(async (req, res) => {
   const avgPetsPerUser = totalUsers > 0 ? Number((totalPets / totalUsers).toFixed(2)) : 0;
 
   // 3. Revenue Stats
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 5;
+  const skip = (page - 1) * limit;
+
+  // Calculate revenue statistics using aggregation
+  const revenueAggregation = await PaymentTransaction.aggregate([
+    { $match: { status: 'SUCCESS' } },
+    { $group: { _id: '$plan_type', totalAmount: { $sum: '$amount' } } }
+  ]);
+
+  const revenueByPlan = { PREMIUM: 0, VIP: 0 };
+  let totalRevenue = 0;
+  revenueAggregation.forEach(item => {
+    if (item._id === 'PREMIUM') {
+      revenueByPlan.PREMIUM = item.totalAmount || 0;
+    } else if (item._id === 'VIP') {
+      revenueByPlan.VIP = item.totalAmount || 0;
+    }
+    totalRevenue += item.totalAmount || 0;
+  });
+
+  const successTransactionsCount = await PaymentTransaction.countDocuments({ status: 'SUCCESS' });
   const successTransactions = await PaymentTransaction.find({ status: 'SUCCESS' })
     .populate('user_id', 'email profile.full_name')
-    .sort({ created_at: -1 });
-
-  const totalRevenue = successTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
-
-  // Revenue by plan
-  const revenueByPlan = {
-    PREMIUM: 0,
-    VIP: 0
-  };
-  successTransactions.forEach(tx => {
-    if (tx.plan_type === 'PREMIUM') {
-      revenueByPlan.PREMIUM += tx.amount || 0;
-    } else if (tx.plan_type === 'VIP') {
-      revenueByPlan.VIP += tx.amount || 0;
-    }
-  });
+    .sort({ created_at: -1 })
+    .skip(skip)
+    .limit(limit);
 
   // Transaction status count
   const allTxCount = await PaymentTransaction.countDocuments();
-  const successTxCount = successTransactions.length;
   const pendingTxCount = await PaymentTransaction.countDocuments({ status: 'PENDING' });
   const failedTxCount = await PaymentTransaction.countDocuments({ status: 'FAILED' });
 
@@ -110,9 +118,15 @@ exports.getStats = catchAsync(async (req, res) => {
           amount: tx.amount,
           paid_at: tx.paid_at || tx.created_at
         })),
+        pagination: {
+          total: successTransactionsCount,
+          page,
+          limit,
+          pages: Math.ceil(successTransactionsCount / limit)
+        },
         statusCount: {
           total: allTxCount,
-          success: successTxCount,
+          success: successTransactionsCount,
           pending: pendingTxCount,
           failed: failedTxCount
         }
