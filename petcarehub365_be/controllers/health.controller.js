@@ -35,7 +35,7 @@ exports.getHealthLogs = catchAsync(async (req, res) => {
 // 2. Add a new health log for a specific pet
 exports.addHealthLog = catchAsync(async (req, res) => {
   const { petId } = req.params;
-  const { weight, height, heart_rate, temperature, measured_at } = req.body;
+  const { weight, height, heart_rate, temperature, measured_at, health_status, note, food_intake, water_intake, sleep_duration, activity_minutes } = req.body;
 
   const pet = await Pet.findById(petId);
   if (!pet) {
@@ -61,6 +61,12 @@ exports.addHealthLog = catchAsync(async (req, res) => {
     height,
     heart_rate,
     temperature,
+    health_status: health_status || 'NORMAL',
+    note: note || '',
+    food_intake,
+    water_intake,
+    sleep_duration,
+    activity_minutes,
     measured_at: measured_at || new Date()
   });
 

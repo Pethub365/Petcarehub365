@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import {
   Plus, Lock, ChevronRight, Heart, Utensils, Footprints,
   Scissors, Zap, Trophy, CheckCircle2, PawPrint, Star,
-  X, Award, BookOpen, CheckCircle
+  X, Award, BookOpen, CheckCircle, Syringe, Clock
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotifications } from '../../contexts/NotificationContext';
 import dailyQuestApi from '../../api/dailyQuestApi';
 
 /* ── Category icon map ── */
@@ -35,6 +36,7 @@ function getCountdown(unlocksAt: string) {
 
 export default function HomePage() {
   const { user, pets, loadingPets, refreshPets } = useAuth();
+  const { notifications, fetchNotifications, markAsRead } = useNotifications();
   const navigate = useNavigate();
   const [selectedPet, setSelectedPet] = useState<any>(null);
   const [quests, setQuests]           = useState<any[]>([]);
@@ -127,8 +129,11 @@ export default function HomePage() {
     }
   }, [user, navigate]);
 
-  /* Initial pet load */
-  useEffect(() => { refreshPets(); }, []);
+  /* Initial pet and notification load */
+  useEffect(() => {
+    refreshPets();
+    fetchNotifications();
+  }, [refreshPets, fetchNotifications]);
 
   const loadQuests = useCallback(async (petId: string) => {
     try {
@@ -169,6 +174,9 @@ export default function HomePage() {
   const xpPercent      = Math.min(100, Math.round((xp / xpNeeded) * 100));
   const questPercent   = quests.length ? Math.round((completedCount / quests.length) * 100) : 0;
   const greeting       = getGreeting();
+  const vaccineReminder = notifications.find(
+    (n: any) => n.type === 'VACCINE_REMINDER' && !(n.isRead || n.is_read)
+  );
 
   /* ═══════════════════════
      LOADING STATE
@@ -249,6 +257,75 @@ export default function HomePage() {
   return (
     <div>
 
+      {/* Vaccine Reminder Banner */}
+      {vaccineReminder && (
+        <div style={{
+          background: 'linear-gradient(135deg, #FF6B6B 0%, #FF5252 100%)',
+          borderRadius: 20,
+          padding: '16px 20px',
+          marginBottom: 20,
+          color: '#fff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+          boxShadow: '0 8px 30px rgba(255, 107, 107, 0.3)',
+          animation: 'slideDown 0.5s ease-out',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{
+              width: 44,
+              height: 44,
+              borderRadius: '50%',
+              background: 'rgba(255, 255, 255, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              boxShadow: 'inset 0 0 10px rgba(255, 255, 255, 0.2)',
+            }}>
+              <Syringe size={22} color="#fff" style={{ transform: 'rotate(-45deg)' }} />
+            </div>
+            <div>
+              <h4 style={{ margin: 0, fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em' }}>
+                {vaccineReminder.title}
+              </h4>
+              <p style={{ margin: '4px 0 0 0', fontSize: 13, opacity: 0.95, lineHeight: 1.4 }}>
+                {vaccineReminder.body}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => markAsRead(vaccineReminder._id)}
+            style={{
+              background: 'rgba(255, 255, 255, 0.25)',
+              border: 'none',
+              borderRadius: '50%',
+              width: 32,
+              height: 32,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: '#fff',
+              transition: 'all 0.2s ease',
+              flexShrink: 0,
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.background = 'rgba(255, 255, 255, 0.4)';
+              (e.currentTarget as HTMLElement).style.transform = 'scale(1.1)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.background = 'rgba(255, 255, 255, 0.25)';
+              (e.currentTarget as HTMLElement).style.transform = 'scale(1)';
+            }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       {/* ── SUMMARY BANNER ── */}
       <div style={{
         background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E53 50%, #FFA94D 100%)',
@@ -295,42 +372,75 @@ export default function HomePage() {
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             {/* Pets */}
             <div style={{
-              background: 'rgba(255,255,255,.20)',
-              backdropFilter: 'blur(12px)',
+              background: 'rgba(255,255,255,.15)',
+              backdropFilter: 'blur(16px)',
               borderRadius: 16,
-              padding: '12px 20px',
-              textAlign: 'center',
-              minWidth: 80,
+              padding: '10px 18px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 4,
+              minWidth: 90,
               border: '1px solid rgba(255,255,255,.25)',
-            }}>
-              <div style={{ fontSize: 24, fontWeight: 900, lineHeight: 1 }}>{pets.length}</div>
-              <div style={{ fontSize: 11, opacity: 0.85, marginTop: 4, fontWeight: 600 }}>🐾 Thú cưng</div>
+              boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.05)',
+              transition: 'transform 0.2s',
+              cursor: 'default'
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'none'; }}>
+              <div style={{ color: '#fff', opacity: 0.95, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <PawPrint size={18} strokeWidth={2.2} />
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1, color: '#fff' }}>{pets.length}</div>
+              <div style={{ fontSize: 10, opacity: 0.9, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Thú cưng</div>
             </div>
             {/* XP */}
             <div style={{
-              background: 'rgba(255,255,255,.20)',
-              backdropFilter: 'blur(12px)',
+              background: 'rgba(255,255,255,.15)',
+              backdropFilter: 'blur(16px)',
               borderRadius: 16,
-              padding: '12px 20px',
-              textAlign: 'center',
-              minWidth: 80,
+              padding: '10px 18px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 4,
+              minWidth: 90,
               border: '1px solid rgba(255,255,255,.25)',
-            }}>
-              <div style={{ fontSize: 24, fontWeight: 900, lineHeight: 1 }}>{xp}</div>
-              <div style={{ fontSize: 11, opacity: 0.85, marginTop: 4, fontWeight: 600 }}>⚡ Điểm XP</div>
+              boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.05)',
+              transition: 'transform 0.2s',
+              cursor: 'default'
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'none'; }}>
+              <div style={{ color: '#FFD54F', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Zap size={18} fill="#FFD54F" strokeWidth={1.5} />
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1, color: '#fff' }}>{xp}</div>
+              <div style={{ fontSize: 10, opacity: 0.9, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Điểm XP</div>
             </div>
             {/* Quest progress */}
             <div style={{
-              background: 'rgba(255,255,255,.20)',
-              backdropFilter: 'blur(12px)',
+              background: 'rgba(255,255,255,.15)',
+              backdropFilter: 'blur(16px)',
               borderRadius: 16,
-              padding: '12px 20px',
-              textAlign: 'center',
-              minWidth: 80,
+              padding: '10px 18px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 4,
+              minWidth: 90,
               border: '1px solid rgba(255,255,255,.25)',
-            }}>
-              <div style={{ fontSize: 24, fontWeight: 900, lineHeight: 1 }}>{questPercent}%</div>
-              <div style={{ fontSize: 11, opacity: 0.85, marginTop: 4, fontWeight: 600 }}>✅ Hoàn thành</div>
+              boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.05)',
+              transition: 'transform 0.2s',
+              cursor: 'default'
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'none'; }}>
+              <div style={{ color: '#81C784', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CheckCircle2 size={18} strokeWidth={2.2} />
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1, color: '#fff' }}>{questPercent}%</div>
+              <div style={{ fontSize: 10, opacity: 0.9, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Hoàn thành</div>
             </div>
           </div>
         </div>
@@ -469,7 +579,8 @@ export default function HomePage() {
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
                 {quests.slice(0, 8).map(quest => {
-                  const isLocked  = !!quest.isLocked;
+                  const isMissed = quest.status === 'MISSED';
+                  const isLocked = !!quest.isLocked || isMissed;
                   const isDone    = quest.status === 'COMPLETED';
                   const isWorking = quest.status === 'IN_PROGRESS';
                   const cat       = CATEGORY[quest.category] || CATEGORY.DAILY_ROUTINE;
@@ -481,83 +592,211 @@ export default function HomePage() {
                       onClick={() => !isLocked && handleQuestClick(quest)}
                       style={{
                         background: isDone
-                          ? '#E8F8EF'
-                          : isLocked ? 'var(--surface2)' : 'var(--surface)',
-                        border: `1.5px solid ${
-                          isDone ? 'rgba(39,174,96,.2)'
-                          : isLocked ? 'var(--border)'
-                          : 'var(--border)'
-                        }`,
-                        borderRadius: 'var(--radius)',
-                        padding: '11px 13px',
+                          ? 'linear-gradient(135deg, #F3FBF7 0%, #E6F7ED 100%)'
+                          : isMissed
+                          ? 'linear-gradient(135deg, #FBFBFB 0%, #F5F5F5 100%)'
+                          : isLocked
+                          ? 'linear-gradient(135deg, #FAFAFA 0%, #F4F4F4 100%)'
+                          : 'var(--surface)',
+                        border: isDone
+                          ? '1px solid rgba(16, 185, 129, 0.3)'
+                          : isMissed
+                          ? '1px solid rgba(239, 68, 68, 0.2)'
+                          : isLocked
+                          ? '1px solid var(--border2)'
+                          : `1.5px solid ${cat.color}25`,
+                        borderRadius: 16,
+                        padding: '14px 16px',
                         cursor: isLocked ? 'not-allowed' : 'pointer',
-                        opacity: isLocked ? .55 : 1,
-                        display: 'flex', flexDirection: 'column', gap: 8,
-                        transition: 'all .2s ease',
+                        opacity: isLocked ? 0.75 : 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 10,
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                         position: 'relative',
                         overflow: 'hidden',
+                        boxShadow: isDone 
+                          ? '0 4px 12px rgba(16, 185, 129, 0.05)'
+                          : '0 4px 12px rgba(0, 0, 0, 0.02)',
                       }}
-                      onMouseEnter={e => { if (!isLocked && !isDone) (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow)'; (e.currentTarget as HTMLElement).style.transform = isLocked ? 'none' : 'translateY(-2px)'; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = 'none'; (e.currentTarget as HTMLElement).style.transform = 'none'; }}
+                      onMouseEnter={e => {
+                        if (!isLocked) {
+                          (e.currentTarget as HTMLElement).style.boxShadow = isDone 
+                            ? '0 8px 24px rgba(16, 185, 129, 0.12)'
+                            : `0 8px 24px ${cat.color}15`;
+                          (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px)';
+                          (e.currentTarget as HTMLElement).style.borderColor = isDone 
+                            ? 'rgba(16, 185, 129, 0.5)'
+                            : `${cat.color}60`;
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        (e.currentTarget as HTMLElement).style.boxShadow = isDone 
+                          ? '0 4px 12px rgba(16, 185, 129, 0.05)'
+                          : '0 4px 12px rgba(0, 0, 0, 0.02)';
+                        (e.currentTarget as HTMLElement).style.transform = 'none';
+                        (e.currentTarget as HTMLElement).style.borderColor = isDone
+                          ? 'rgba(16, 185, 129, 0.3)'
+                          : isMissed
+                          ? 'rgba(239, 68, 68, 0.2)'
+                          : isLocked
+                          ? 'var(--border2)'
+                          : `${cat.color}25`;
+                      }}
                     >
-                      {/* Top row: icon + status dot */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div style={{
-                          width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-                          background: isLocked ? 'var(--surface3)' : cat.bg,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      {/* Top row: category badge + status indicator */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{
+                          fontSize: 10.5,
+                          fontWeight: 700,
+                          color: isLocked ? 'var(--text-4)' : cat.color,
+                          background: isLocked ? 'var(--surface3)' : `${cat.color}15`,
+                          padding: '3px 8px',
+                          borderRadius: 8,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.03em'
                         }}>
-                          {isLocked
-                            ? <Lock size={16} color="var(--text-4)" />
-                            : (() => { const IconComp = cat.icon; return <IconComp size={18} color={cat.color} />; })()}
-                        </div>
-                        {/* Done checkmark */}
+                          {cat.label}
+                        </span>
+                        
                         <div style={{
-                          width: 20, height: 20, borderRadius: '50%',
-                          background: isDone ? 'var(--green)' : 'var(--border)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          flexShrink: 0, transition: 'all .2s',
+                          width: 22,
+                          height: 22,
+                          borderRadius: '50%',
+                          background: isDone 
+                            ? 'linear-gradient(135deg, #10B981 0%, #059669 100%)' 
+                            : isMissed 
+                            ? 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)'
+                            : isLocked 
+                            ? 'var(--border2)' 
+                            : 'var(--border)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          boxShadow: isDone 
+                            ? '0 2px 6px rgba(16, 185, 129, 0.3)'
+                            : isMissed 
+                            ? '0 2px 6px rgba(239, 68, 68, 0.3)'
+                            : 'none',
                         }}>
-                          {isDone && (
+                          {isDone ? (
                             <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                              <path d="M2 6L5 9L10 3" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                              <path d="M2 6L5 9L10 3" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
+                          ) : isMissed ? (
+                            <svg width="8" height="8" viewBox="0 0 12 12" fill="none">
+                              <path d="M2 2L10 10M10 2L2 10" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" />
+                            </svg>
+                          ) : isLocked ? (
+                            <Lock size={10} color="var(--text-4)" />
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {/* Icon & Title Row */}
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                        <div style={{
+                          width: 38,
+                          height: 38,
+                          borderRadius: 12,
+                          background: isLocked ? 'var(--surface3)' : cat.bg,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}>
+                          {isLocked && !isMissed ? (
+                            <Lock size={18} color="var(--text-4)" />
+                          ) : (() => {
+                            const IconComp = cat.icon;
+                            return <IconComp size={20} color={isLocked ? 'var(--text-4)' : cat.color} />;
+                          })()}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <div style={{
+                            fontWeight: 700,
+                            fontSize: 13.5,
+                            color: isDone 
+                              ? '#065F46' 
+                              : isMissed 
+                              ? '#991B1B'
+                              : isLocked 
+                              ? 'var(--text-3)' 
+                              : 'var(--text)',
+                            lineHeight: 1.35,
+                          }}>
+                            {quest.title}
+                          </div>
+                          
+                          {/* Subtitle / Lock message */}
+                          {isMissed ? (
+                            <span style={{ fontSize: 11, fontWeight: 600, color: '#EF4444' }}>
+                              Đã khóa (Trễ hạn)
+                            </span>
+                          ) : isLocked && quest.unlocksAt ? (
+                            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-4)' }}>
+                              Mở khóa sau {getCountdown(quest.unlocksAt)}
+                            </span>
+                          ) : isLocked && quest.lockMessage ? (
+                            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-4)' }}>
+                              {quest.lockMessage}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {/* Bottom row: XP reward & mini progress bar */}
+                      <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            color: isLocked ? 'var(--text-4)' : '#6B21A8',
+                            background: isLocked ? 'var(--surface3)' : '#F3E8FF',
+                            padding: '2px 8px',
+                            borderRadius: 6,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4
+                          }}>
+                            <Zap size={10} fill={isLocked ? 'var(--text-4)' : '#A855F7'} color="transparent" /> +{quest.reward_xp || 0} XP
+                          </span>
+                          
+                          {isWorking && (
+                            <span style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              color: '#1E40AF',
+                              background: '#DBEAFE',
+                              padding: '2px 8px',
+                              borderRadius: 6,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4
+                            }}>
+                              <Clock size={10} /> Đang làm
+                            </span>
                           )}
                         </div>
-                      </div>
 
-                      {/* Title */}
-                      <div>
-                        <div style={{
-                          fontWeight: 700, fontSize: 12.5,
-                          color: isDone ? 'var(--green)' : isLocked ? 'var(--text-3)' : 'var(--text)',
-                          lineHeight: 1.35,
-                          display: '-webkit-box', WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                        }}>
-                          {quest.title}
-                        </div>
-                        {isLocked && (
-                          <div style={{ fontSize: 10.5, color: 'var(--text-4)', marginTop: 3 }}>
-                            🔒 {quest.unlocksAt ? getCountdown(quest.unlocksAt) : '5h'}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Bottom: XP chip + progress */}
-                      <div style={{ marginTop: 'auto' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                          <span className="chip chip-purple" style={{ fontSize: 9.5, padding: '1.5px 6px' }}>
-                            <Zap size={8} /> +{quest.reward_xp || 0} XP
-                          </span>
-                          {isWorking && <span className="chip chip-blue" style={{ fontSize: 9.5, padding: '1.5px 6px' }}>⏳</span>}
-                        </div>
                         {!isLocked && (
-                          <div className="progress" style={{ height: 4 }}>
-                            <div
-                              className={`progress-fill ${isDone ? 'green' : 'blue'}`}
-                              style={{ width: `${progress}%` }}
-                            />
+                          <div style={{
+                            height: 6,
+                            background: 'var(--border2)',
+                            borderRadius: 99,
+                            overflow: 'hidden',
+                            marginTop: 4
+                          }}>
+                            <div style={{
+                              height: '100%',
+                              width: `${progress}%`,
+                              background: isDone 
+                                ? 'linear-gradient(90deg, #10B981 0%, #059669 100%)' 
+                                : 'linear-gradient(90deg, #3B82F6 0%, #2563EB 100%)',
+                              borderRadius: 99,
+                              transition: 'width 0.4s ease'
+                            }} />
                           </div>
                         )}
                       </div>
@@ -767,6 +1006,16 @@ export default function HomePage() {
       )}
 
       <style>{`
+        @keyframes slideDown {
+          from {
+            transform: translateY(-20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
         @media (max-width: 900px) {
           .dashboard-grid { grid-template-columns: 1fr !important; }
         }

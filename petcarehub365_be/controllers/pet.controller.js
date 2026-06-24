@@ -348,12 +348,19 @@ exports.getLeaderboard = catchAsync(async (req, res) => {
     }
 
     const now = new Date();
+    let normalizedTimeFilter = String(timeFilter || "").toUpperCase();
+    if (normalizedTimeFilter === 'WEEKLY') {
+        normalizedTimeFilter = 'WEEK';
+    } else if (normalizedTimeFilter === 'MONTHLY') {
+        normalizedTimeFilter = 'MONTH';
+    }
+
     let startDate = null;
-    if (timeFilter === 'WEEK') {
+    if (normalizedTimeFilter === 'WEEK') {
         const day = now.getDay();
         const diff = now.getDate() - (day === 0 ? 6 : day - 1);
         startDate = new Date(now.getFullYear(), now.getMonth(), diff, 0, 0, 0, 0);
-    } else if (timeFilter === 'MONTH') {
+    } else if (normalizedTimeFilter === 'MONTH') {
         startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
     }
 

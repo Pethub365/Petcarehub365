@@ -108,6 +108,8 @@ exports.getDailyQuests = catchAsync(async (req, res) => {
     const completedNutritions = await DailyQuest.find({
         pet_id: pet._id,
         category: 'NUTRITION',
+        title: { $in: ['Bữa sáng dinh dưỡng', 'Bữa trưa dinh dưỡng', 'Bữa tối ấm cúng'] },
+        source_knowledge_id: null,
         status: 'COMPLETED',
         completed_at: { $gte: fiveHoursAgo }
     });
@@ -128,7 +130,12 @@ exports.getDailyQuests = catchAsync(async (req, res) => {
                 const unlocksAt = completedTime + fiveHoursMs;
                 quests = quests.map(q => {
                     const qObj = q.toObject ? q.toObject() : q;
-                    if (qObj.category === 'NUTRITION' && qObj.status === 'PENDING') {
+                    if (
+                        qObj.category === 'NUTRITION' &&
+                        qObj.status === 'PENDING' &&
+                        ['Bữa sáng dinh dưỡng', 'Bữa trưa dinh dưỡng', 'Bữa tối ấm cúng'].includes(qObj.title) &&
+                        !qObj.source_knowledge_id
+                    ) {
                         qObj.isLocked = true;
                         qObj.lockMessage = `Mở khóa sau ${remainingHours} giờ`;
                         qObj.unlocksAt = new Date(unlocksAt).toISOString();
@@ -172,12 +179,18 @@ exports.completeQuest = catchAsync(async (req, res) => {
         throw new ApiError(httpStatus.BAD_REQUEST, 'Nhiệm vụ đã được hoàn thành trước đó');
     }
 
+    if (quest.status === 'MISSED') {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Nhiệm vụ đã quá hạn, không thể hoàn thành');
+    }
+
     // Kiểm tra khóa bữa ăn tiếp theo sau 5 tiếng (trong vòng 5 tiếng thực tế qua)
-    if (quest.category === 'NUTRITION') {
+    if (quest.category === 'NUTRITION' && ['Bữa sáng dinh dưỡng', 'Bữa trưa dinh dưỡng', 'Bữa tối ấm cúng'].includes(quest.title) && !quest.source_knowledge_id) {
         const fiveHoursAgo = new Date(Date.now() - 5 * 60 * 60 * 1000);
         const completedNutritions = await DailyQuest.find({
             pet_id: quest.pet_id,
             category: 'NUTRITION',
+            title: { $in: ['Bữa sáng dinh dưỡng', 'Bữa trưa dinh dưỡng', 'Bữa tối ấm cúng'] },
+            source_knowledge_id: null,
             status: 'COMPLETED',
             completed_at: { $gte: fiveHoursAgo },
             _id: { $ne: quest._id }

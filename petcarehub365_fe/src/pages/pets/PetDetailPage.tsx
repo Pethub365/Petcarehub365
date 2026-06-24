@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Edit2, Heart, Star, Calendar, Scale } from 'lucide-react';
+import { ArrowLeft, Edit2, Heart, Star, Calendar, Scale, CheckCircle2, Lock, Clock } from 'lucide-react';
 import petApi from '../../api/petApi';
 import dailyQuestApi from '../../api/dailyQuestApi';
 import { useAuth } from '../../contexts/AuthContext';
@@ -195,8 +195,18 @@ export default function PetDetailPage() {
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
               {quests.map(q => (
                 <div key={q._id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', background:'var(--surface2)', borderRadius:12 }}>
-                  <div style={{ width:36, height:36, borderRadius:10, background: q.status==='COMPLETED' ? '#E8F8EF' : 'var(--primary-bg)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>
-                    {q.status === 'COMPLETED' ? '✅' : q.isLocked ? '🔒' : '⏳'}
+                  <div style={{ 
+                    width:36, 
+                    height:36, 
+                    borderRadius:10, 
+                    background: q.status==='COMPLETED' ? '#E8F8EF' : q.isLocked ? 'var(--surface3)' : 'var(--primary-bg)', 
+                    display:'flex', 
+                    alignItems:'center', 
+                    justifyContent: 'center', 
+                    color: q.status==='COMPLETED' ? '#10B981' : q.isLocked ? 'var(--text-4)' : 'var(--primary)',
+                    flexShrink:0 
+                  }}>
+                    {q.status === 'COMPLETED' ? <CheckCircle2 size={16} /> : q.isLocked ? <Lock size={16} /> : <Clock size={16} />}
                   </div>
                   <div style={{ flex:1 }}>
                     <div style={{ fontWeight:600, fontSize:14 }}>{q.title}</div>

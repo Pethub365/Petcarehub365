@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { User, Lock, Bell, CreditCard, Users, LogOut, ChevronRight } from 'lucide-react';
+import { User, Lock, Bell, CreditCard, Users, LogOut, ChevronRight, Star, Crown } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import subscriptionApi from '../../api/subscriptionApi';
 import { useState, useEffect } from 'react';
@@ -72,8 +72,10 @@ export default function SettingsPage() {
             <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayName}</div>
             <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email}</div>
             <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-              <span className={`chip ${plan === 'FREE' ? 'chip-gray' : plan === 'PREMIUM' ? 'chip-blue' : 'chip-yellow'}`} style={{ fontSize: 9.5, padding: '1px 6px' }}>
-                {plan === 'FREE' ? '🆓 FREE' : plan === 'PREMIUM' ? '⭐ PREMIUM' : '👑 VIP'}
+              <span className={`chip ${plan === 'FREE' ? 'chip-gray' : plan === 'PREMIUM' ? 'chip-blue' : 'chip-yellow'}`} style={{ fontSize: 9.5, padding: '1px 6px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                {plan === 'FREE' && 'FREE'}
+                {plan === 'PREMIUM' && <><Star size={10} fill="var(--secondary)" color="transparent" /> PREMIUM</>}
+                {plan === 'VIP' && <><Crown size={10} fill="var(--gold)" color="transparent" /> VIP</>}
               </span>
               {user?.profile?.full_name && <span className="chip chip-green" style={{ fontSize: 9.5, padding: '1px 6px' }}>✓ Xác minh</span>}
             </div>
@@ -83,7 +85,9 @@ export default function SettingsPage() {
         {/* Subscription banner if FREE */}
         {plan === 'FREE' && (
           <div style={{ background: 'linear-gradient(135deg,#FFD700,#FF8C00)', color: '#fff', display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 28 }}>👑</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Crown size={28} color="#fff" fill="#fff" />
+            </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 1 }}>Nâng cấp lên VIP!</div>
               <div style={{ fontSize: 11, opacity: .9, lineHeight: '14px' }}>Mở khóa tính năng AI cao cấp, không giới hạn thú cưng.</div>

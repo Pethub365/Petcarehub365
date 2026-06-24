@@ -363,6 +363,30 @@ const ensureDailyQuestsForPet = async (pet, date = new Date(), reqTimezone = 'As
                 status: 'PENDING',
                 valid_from_hour: 18,
                 valid_until_hour: 24
+            },
+            {
+                pet_id: pet._id,
+                assigned_date: startOfDay,
+                title: 'Thay nước uống sạch',
+                description: `Rửa sạch bát nước và thay nước mới mát lành để khuyến khích ${pet.name} uống nước, phòng tránh bệnh sỏi thận.`,
+                category: 'DAILY_ROUTINE',
+                status: 'PENDING'
+            },
+            {
+                pet_id: pet._id,
+                assigned_date: startOfDay,
+                title: 'Chải lông giảm rụng',
+                description: `Chải lông cho ${pet.name} để loại bỏ lông rụng, xơ rối và mát-xa da hỗ trợ kích thích lông mới phát triển tốt hơn.`,
+                category: 'TRAINING',
+                status: 'PENDING'
+            },
+            {
+                pet_id: pet._id,
+                assigned_date: startOfDay,
+                title: 'Vệ sinh răng miệng',
+                description: `Sử dụng bàn chải/gel nha khoa chuyên dụng cho thú cưng để làm sạch mảng bám răng của ${pet.name}, tránh hôi miệng và viêm nướu.`,
+                category: 'HEALTH_CARE',
+                status: 'PENDING'
             }
         ];
 
@@ -376,6 +400,14 @@ const ensureDailyQuestsForPet = async (pet, date = new Date(), reqTimezone = 'As
                 category: 'DAILY_ROUTINE',
                 status: 'PENDING'
             });
+            defaultQuests.push({
+                pet_id: pet._id,
+                assigned_date: startOfDay,
+                title: 'Huấn luyện khẩu lệnh',
+                description: `Dành 10 phút dạy hoặc ôn tập khẩu lệnh cơ bản (ngồi, nằm, chờ, lại đây) cùng ${pet.name} giúp rèn luyện trí tuệ.`,
+                category: 'TRAINING',
+                status: 'PENDING'
+            });
         } else if (pet.species === 'CAT') {
             defaultQuests.push({
                 pet_id: pet._id,
@@ -383,6 +415,14 @@ const ensureDailyQuestsForPet = async (pet, date = new Date(), reqTimezone = 'As
                 title: 'Dọn dẹp khay vệ sinh',
                 description: `Sàng khay cát vệ sinh của ${pet.name} để đảm bảo sạch sẽ và khử mùi.`,
                 category: 'DAILY_ROUTINE',
+                status: 'PENDING'
+            });
+            defaultQuests.push({
+                pet_id: pet._id,
+                assigned_date: startOfDay,
+                title: 'Chơi đùa & Tương tác',
+                description: `Dành 15 phút chơi đùa cùng ${pet.name} bằng cần câu mèo hoặc đồ chơi tương tác để kích hoạt bản năng săn mồi giải tỏa stress.`,
+                category: 'TRAINING',
                 status: 'PENDING'
             });
         }
@@ -600,6 +640,13 @@ const ensureDailyQuestsForPet = async (pet, date = new Date(), reqTimezone = 'As
             if (currentHour >= q.valid_until_hour) {
                 q.status = 'MISSED';
                 await q.save();
+                
+                // Quy tắc mới: Bỏ lỡ cữ ăn làm giảm 10 điểm Mood và 10 điểm Energy của thú cưng
+                pet.stats.mood = Math.max(0, (pet.stats.mood || 0) - 10);
+                pet.stats.energy = Math.max(0, (pet.stats.energy || 0) - 10);
+                pet.markModified('stats');
+                await pet.save();
+                
                 hasUpdates = true;
             }
         }
@@ -615,15 +662,24 @@ const ensureDailyQuestsForPet = async (pet, date = new Date(), reqTimezone = 'As
         }).populate('source_knowledge_id').populate('assigned_to', 'email profile');
     }
 
-    // Lọc chỉ trả về các nhiệm vụ đã đến giờ hiển thị
-    const filteredQuests = quests.filter(q => {
-        if (q.valid_from_hour !== null && q.valid_from_hour !== undefined) {
-            return currentHour >= q.valid_from_hour;
+    // Không lọc bỏ các nhiệm vụ chưa đến giờ, mà giữ lại và đánh dấu chúng là bị khóa
+    const processedQuests = quests.map(q => {
+        const qObj = q.toObject ? q.toObject() : q;
+        if (qObj.status === 'PENDING' && qObj.valid_from_hour !== null && qObj.valid_from_hour !== undefined) {
+            if (currentHour < qObj.valid_from_hour) {
+                qObj.isLocked = true;
+                if (!qObj.lockMessage) {
+                    qObj.lockMessage = `Bắt đầu lúc ${qObj.valid_from_hour}:00`;
+                    const unlocks = new Date();
+                    unlocks.setHours(qObj.valid_from_hour, 0, 0, 0);
+                    qObj.unlocksAt = unlocks.toISOString();
+                }
+            }
         }
-        return true;
+        return qObj;
     });
 
-    return filteredQuests;
+    return processedQuests;
 };
 
 const ensureWeeklyQuestsForPet = async (pet, period = 'WEEKLY', date = new Date(), reqTimezone = 'Asia/Ho_Chi_Minh') => {

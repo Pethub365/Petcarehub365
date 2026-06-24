@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { CheckCircle, Lock, X, BookOpen, Award, Trophy, Star, Utensils, Footprints, Scissors, Heart } from 'lucide-react';
+import { CheckCircle, Lock, X, BookOpen, Award, Trophy, Star, Utensils, Footprints, Scissors, Heart, Zap, Sparkles } from 'lucide-react';
 import dailyQuestApi from '../../api/dailyQuestApi';
 import { useAuth } from '../../contexts/AuthContext';
 
 const CAT_MAP: Record<string, { icon: any; label:string; color:string; bg:string }> = {
-  NUTRITION: { icon: Utensils, label:'Dinh dưỡng', color:'#F2994A', bg:'#FFF8E1' },
-  DAILY_ROUTINE: { icon: Footprints, label:'Hoạt động', color:'#2D9CDB', bg:'#E1F0FF' },
-  TRAINING: { icon: Scissors, label:'Chải chuốt', color:'#9B51E0', bg:'#F3E5F5' },
-  HEALTH_CARE: { icon: Heart, label:'Sức khỏe', color:'#EC4B4B', bg:'#FFF0F0' },
+  NUTRITION:     { icon: Utensils,  label: 'Dinh dưỡng', color: '#FFA94D', bg: '#FFF3E0' },
+  DAILY_ROUTINE: { icon: Footprints, label: 'Hoạt động',   color: '#4F8EF7', bg: '#EFF6FF' },
+  TRAINING:      { icon: Scissors,  label: 'Chải chuốt',   color: '#A855F7', bg: '#F3E8FF' },
+  HEALTH_CARE:   { icon: Heart,     label: 'Sức khỏe',    color: '#FF6B6B', bg: '#FFF5F5' },
 };
 
 function countdown(unlocksAt: string) {
@@ -284,7 +284,8 @@ export default function MissionDetailPage() {
       ) : (
         <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
           {filtered.map(quest => {
-            const isLocked = !!quest.isLocked;
+            const isMissed = quest.status === 'MISSED';
+            const isLocked = !!quest.isLocked || isMissed;
             const isDone = quest.status === 'COMPLETED';
             const isWorking = quest.status === 'IN_PROGRESS';
             const cat = CAT_MAP[quest.category] || CAT_MAP.DAILY_ROUTINE;
@@ -292,33 +293,163 @@ export default function MissionDetailPage() {
             const progress = isDone ? 100 : isWorking ? 65 : 0;
 
             return (
-              <div key={quest._id} className="card"
-                onClick={() => handleQuestClick(quest)}
-                style={{ opacity: isLocked ? 0.65 : 1, transition:'box-shadow .2s', cursor: isLocked ? 'default' : 'pointer' }}
-                onMouseEnter={e => { if(!isLocked) (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow)'; }}
-                onMouseLeave={e => { if(!isLocked) (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow-sm)'; }}>
-                <div style={{ display:'flex', alignItems:'flex-start', gap:14 }}>
-                  <div style={{ width:52, height:52, borderRadius:14, background:isLocked?'var(--surface2)':cat.bg, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                    {isLocked ? <Lock size={22} color="#8A9AA9"/> : <IconComponent size={24} color={cat.color} />}
+              <div key={quest._id}
+                onClick={() => !isLocked && handleQuestClick(quest)}
+                style={{
+                  background: isDone
+                    ? 'linear-gradient(135deg, #F3FBF7 0%, #E6F7ED 100%)'
+                    : isMissed
+                    ? 'linear-gradient(135deg, #FBFBFB 0%, #F5F5F5 100%)'
+                    : isLocked
+                    ? 'linear-gradient(135deg, #FAFAFA 0%, #F4F4F4 100%)'
+                    : 'var(--surface)',
+                  border: isDone
+                    ? '1px solid rgba(16, 185, 129, 0.3)'
+                    : isMissed
+                    ? '1px solid rgba(239, 68, 68, 0.2)'
+                    : isLocked
+                    ? '1px solid var(--border2)'
+                    : `1.5px solid ${cat.color}25`,
+                  borderRadius: 16,
+                  padding: '16px 20px',
+                  cursor: isLocked ? 'not-allowed' : 'pointer',
+                  opacity: isLocked ? 0.75 : 1,
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  boxShadow: isDone 
+                    ? '0 4px 12px rgba(16, 185, 129, 0.05)'
+                    : '0 4px 12px rgba(0, 0, 0, 0.02)',
+                  marginBottom: 14
+                }}
+                onMouseEnter={e => {
+                  if (!isLocked) {
+                    (e.currentTarget as HTMLElement).style.boxShadow = isDone 
+                      ? '0 8px 24px rgba(16, 185, 129, 0.12)'
+                      : `0 8px 24px ${cat.color}15`;
+                    (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
+                    (e.currentTarget as HTMLElement).style.borderColor = isDone 
+                      ? 'rgba(16, 185, 129, 0.5)'
+                      : `${cat.color}60`;
+                  }
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.boxShadow = isDone 
+                    ? '0 4px 12px rgba(16, 185, 129, 0.05)'
+                    : '0 4px 12px rgba(0, 0, 0, 0.02)';
+                  (e.currentTarget as HTMLElement).style.transform = 'none';
+                  (e.currentTarget as HTMLElement).style.borderColor = isDone
+                    ? 'rgba(16, 185, 129, 0.3)'
+                    : isMissed
+                    ? 'rgba(239, 68, 68, 0.2)'
+                    : isLocked
+                    ? 'var(--border2)'
+                    : `${cat.color}25`;
+                }}>
+                
+                <div style={{ display:'flex', alignItems:'flex-start', gap:16 }}>
+                  {/* Left Side Icon */}
+                  <div style={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: 14,
+                    background: isLocked ? 'var(--surface3)' : cat.bg,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    {isLocked && !isMissed ? (
+                      <Lock size={22} color="var(--text-4)" />
+                    ) : (
+                      <IconComponent size={24} color={isLocked ? 'var(--text-4)' : cat.color} />
+                    )}
                   </div>
-                  <div style={{ flex:1 }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:4 }}>
-                      <div style={{ fontWeight:700, fontSize:16, color:'var(--text)' }}>{quest.title}</div>
-                      <span className={`chip ${isDone?'chip-green':isLocked?'chip-gray':isWorking?'chip-blue':'chip-yellow'}`}>
-                        {isDone?'Hoàn thành':isLocked?'Bị khóa':isWorking?'Đang làm':'Chờ'}
+
+                  {/* Middle Details */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                      <div style={{
+                        fontWeight: 700,
+                        fontSize: 16,
+                        color: isDone 
+                          ? '#065F46' 
+                          : isMissed 
+                          ? '#991B1B'
+                          : isLocked 
+                          ? 'var(--text-3)' 
+                          : 'var(--text)'
+                      }}>
+                        {quest.title}
+                      </div>
+                      
+                      <span className={`chip ${
+                        isDone ? 'chip-green' 
+                        : isMissed ? 'chip-red'
+                        : isLocked ? 'chip-gray' 
+                        : isWorking ? 'chip-blue' 
+                        : 'chip-yellow'
+                      }`} style={{ textTransform: 'uppercase', fontSize: 10.5, fontWeight: 700 }}>
+                        {isDone ? 'Hoàn thành' 
+                         : isMissed ? 'Trễ hạn' 
+                         : isLocked ? 'Bị khóa' 
+                         : isWorking ? 'Đang làm' 
+                         : 'Chờ'}
                       </span>
                     </div>
-                    <div style={{ fontSize:13, color:'var(--text-3)', marginBottom:8 }}>
-                      {isLocked
-                        ? `🔒 Mở khóa sau: ${quest.unlocksAt ? countdown(quest.unlocksAt) : '5h cooldown'}`
-                        : quest.description}
-                    </div>
-                    <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
-                      <span className="chip chip-green">⭐ +{quest.reward_xp || 0} XP</span>
-                      <span className="chip chip-blue">{cat.label}</span>
-                      {quest.source_knowledge_id && (
-                        <span className="chip" style={{ background: '#E1F0FF', color: '#2D9CDB', border: '1px solid #2D9CDB33', fontWeight: 700 }}>🩺 Tri thức y khoa</span>
+
+                    <div style={{ fontSize: 13.5, color: isLocked ? 'var(--text-4)' : 'var(--text-2)', marginBottom: 10, lineHeight: 1.5 }}>
+                      {isMissed ? (
+                        <span style={{ color: '#EF4444', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <Lock size={12} /> Nhiệm vụ đã bị khóa do trễ hạn chăm sóc.
+                        </span>
+                      ) : isLocked && quest.unlocksAt ? (
+                        <span style={{ color: 'var(--text-4)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <Lock size={12} /> Mở khóa sau: {countdown(quest.unlocksAt)}
+                        </span>
+                      ) : isLocked && quest.lockMessage ? (
+                        <span style={{ color: 'var(--text-4)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <Lock size={12} /> {quest.lockMessage}
+                        </span>
+                      ) : (
+                        quest.description
                       )}
+                    </div>
+
+                    {/* Chips section */}
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                      <span style={{
+                        fontSize: 10.5,
+                        fontWeight: 700,
+                        color: isLocked ? 'var(--text-4)' : '#6B21A8',
+                        background: isLocked ? 'var(--surface3)' : '#F3E8FF',
+                        padding: '2px 8px',
+                        borderRadius: 6,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4
+                      }}>
+                        <Zap size={10} fill={isLocked ? 'var(--text-4)' : '#A855F7'} color="transparent" /> +{quest.reward_xp || 0} XP
+                      </span>
+                      
+                      <span style={{
+                        fontSize: 10.5,
+                        fontWeight: 700,
+                        color: isLocked ? 'var(--text-4)' : cat.color,
+                        background: isLocked ? 'var(--surface3)' : `${cat.color}15`,
+                        padding: '2px 8px',
+                        borderRadius: 6,
+                        textTransform: 'uppercase'
+                      }}>
+                        {cat.label}
+                      </span>
+                      
+                      {quest.source_knowledge_id && (
+                        <span className="chip" style={{ background: '#E1F0FF', color: '#2D9CDB', border: '1px solid #2D9CDB33', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <BookOpen size={10} /> Tri thức y khoa
+                        </span>
+                      )}
+                      
                       {(!quest.source_knowledge_id && (
                         quest.title.includes(selectedPet?.name) || 
                         quest.title.includes('Canxi') || 
@@ -327,8 +458,11 @@ export default function MissionDetailPage() {
                         quest.title.includes('Hạ nhiệt') ||
                         quest.title.includes('Thư giãn')
                       )) && (
-                        <span className="chip" style={{ background: '#FFF9E6', color: '#FFB000', border: '1px solid #FFB00033', fontWeight: 700 }}>✨ Cá nhân hóa</span>
+                        <span className="chip" style={{ background: '#FFF9E6', color: '#FFB000', border: '1px solid #FFB00033', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <Sparkles size={10} /> Cá nhân hóa
+                        </span>
                       )}
+                      
                       {quest.assigned_to && (
                         <span className="chip" style={{ 
                           background: (quest.assigned_to._id || quest.assigned_to) === user?._id ? '#E8F8EF' : 'var(--surface2)', 
@@ -340,26 +474,47 @@ export default function MissionDetailPage() {
                         </span>
                       )}
                     </div>
+
+                    {/* Progress indicator */}
                     {!isLocked && (
-                      <div>
-                        <div className="progress"><div className="progress-fill" style={{ width:`${progress}%` }} /></div>
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{
+                          height: 6,
+                          background: 'var(--border2)',
+                          borderRadius: 99,
+                          overflow: 'hidden'
+                        }}>
+                          <div style={{
+                            height: '100%',
+                            width: `${progress}%`,
+                            background: isDone 
+                              ? 'linear-gradient(90deg, #10B981 0%, #059669 100%)' 
+                              : 'linear-gradient(90deg, #3B82F6 0%, #2563EB 100%)',
+                            borderRadius: 99,
+                            transition: 'width 0.4s ease'
+                          }} />
+                        </div>
                         <div style={{ display:'flex', justifyContent:'space-between', marginTop:6, fontSize:11, color:'var(--text-3)', fontWeight:600 }}>
-                          <span>{isDone?'HOÀN THÀNH':isWorking?'ĐANG THỰC HIỆN':'SẮP TỚI'}</span>
+                          <span>{isDone ? 'HOÀN THÀNH' : isWorking ? 'ĐANG THỰC HIỆN' : 'SẮP TỚI'}</span>
                           <span>{progress}%</span>
                         </div>
                       </div>
                     )}
                   </div>
-                  {!isLocked && !isDone && (
-                    <button
-                      className="btn btn-primary btn-sm"
-                      style={{ flexShrink:0, marginTop:4 }}
-                      onClick={(e) => { e.stopPropagation(); handleComplete(quest._id); }}
-                      disabled={completing === quest._id}>
-                      {completing===quest._id ? <div className="spinner"/> : <><CheckCircle size={15}/> Hoàn thành</>}
-                    </button>
-                  )}
-                  {isDone && <CheckCircle size={28} color="var(--success)" style={{ flexShrink:0, marginTop:2 }} />}
+
+                  {/* Actions (Complete / Checkmark) */}
+                  <div style={{ display: 'flex', alignItems: 'center', alignSelf: 'center' }}>
+                    {!isLocked && !isDone && (
+                      <button
+                        className="btn btn-primary btn-sm"
+                        style={{ flexShrink:0 }}
+                        onClick={(e) => { e.stopPropagation(); handleComplete(quest._id); }}
+                        disabled={completing === quest._id}>
+                        {completing === quest._id ? <div className="spinner"/> : <><CheckCircle size={15}/> Hoàn thành</>}
+                      </button>
+                    )}
+                    {isDone && <CheckCircle size={28} color="var(--success)" style={{ flexShrink:0 }} />}
+                  </div>
                 </div>
               </div>
             );
