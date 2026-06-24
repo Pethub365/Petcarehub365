@@ -14,6 +14,8 @@ export default function RanksPage() {
   const [loading, setLoading] = useState(true);
   const [time, setTime] = useState('weekly');
   const [species, setSpecies] = useState('all');
+  const [page, setPage] = useState(1);
+  const limit = 10;
 
   const load = async () => {
     setLoading(true);
@@ -26,6 +28,10 @@ export default function RanksPage() {
   };
 
   useEffect(() => { load(); }, [time, species]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [time, species]);
 
   const rankIcon = (idx: number) => {
     if (idx === 0) return <Crown size={20} color="#FFD700" />;
@@ -89,32 +95,67 @@ export default function RanksPage() {
         ) : board.length === 0 ? (
           <div className="empty-state"><Trophy size={48}/><h3>Chưa có dữ liệu xếp hạng</h3></div>
         ) : (
-          <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
-            {board.map((pet, idx) => {
-              const isTop3 = idx < 3;
-              return (
-                <div key={pet._id || idx} style={{
-                  display:'flex', alignItems:'center', gap:14,
-                  padding:'14px 16px', borderRadius:12,
-                  background: isTop3 ? (idx===0?'linear-gradient(90deg,#FFF8E1,transparent)':idx===1?'linear-gradient(90deg,#F5F5F5,transparent)':'linear-gradient(90deg,#FFF3E0,transparent)') : 'transparent',
-                  transition:'background .15s'
-                }}>
-                  <div style={{ width:32, display:'flex', justifyContent:'center' }}>{rankIcon(idx)}</div>
-                  <div className="avatar avatar-md" style={{ fontSize:20, background:'var(--primary-bg)', flexShrink:0 }}>
-                    {pet.avatar_url ? <img src={pet.avatar_url} alt={pet.name} style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}}/> : '🐾'}
-                  </div>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:700, fontSize:15 }}>{pet.name}</div>
-                    <div style={{ fontSize:12, color:'var(--text-3)', textTransform:'capitalize' }}>{pet.species} • {pet.breed || 'Mixed'}</div>
-                  </div>
-                  <div style={{ textAlign:'right' }}>
-                    <div style={{ fontWeight:800, fontSize:16, color: isTop3?'var(--primary)':'var(--text)' }}>{pet.stats?.xp || 0} XP</div>
-                    <div style={{ fontSize:12, color:'var(--text-3)' }}>Cấp {pet.stats?.level || 1}</div>
-                  </div>
+          (() => {
+            const totalPages = Math.ceil(board.length / limit);
+            const paginatedBoard = board.slice((page - 1) * limit, page * limit);
+            return (
+              <>
+                <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+                  {paginatedBoard.map((pet, idx) => {
+                    const actualIdx = (page - 1) * limit + idx;
+                    const isTop3 = actualIdx < 3;
+                    return (
+                      <div key={pet._id || actualIdx} style={{
+                        display:'flex', alignItems:'center', gap:14,
+                        padding:'14px 16px', borderRadius:12,
+                        background: isTop3 ? (actualIdx===0?'linear-gradient(90deg,#FFF8E1,transparent)':actualIdx===1?'linear-gradient(90deg,#F5F5F5,transparent)':'linear-gradient(90deg,#FFF3E0,transparent)') : 'transparent',
+                        transition:'background .15s'
+                      }}>
+                        <div style={{ width:32, display:'flex', justifyContent:'center' }}>{rankIcon(actualIdx)}</div>
+                        <div className="avatar avatar-md" style={{ fontSize:20, background:'var(--primary-bg)', flexShrink:0 }}>
+                          {pet.avatar_url ? <img src={pet.avatar_url} alt={pet.name} style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}}/> : '🐾'}
+                        </div>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontWeight:700, fontSize:15 }}>{pet.name}</div>
+                          <div style={{ fontSize:12, color:'var(--text-3)', textTransform:'capitalize' }}>{pet.species} • {pet.breed || 'Mixed'}</div>
+                        </div>
+                        <div style={{ textAlign:'right' }}>
+                          <div style={{ fontWeight:800, fontSize:16, color: isTop3?'var(--primary)':'var(--text)' }}>{pet.stats?.xp || 0} XP</div>
+                          <div style={{ fontSize:12, color:'var(--text-3)' }}>Cấp {pet.stats?.level || 1}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
+
+                {totalPages > 1 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+                    <span style={{ fontSize: 13, color: 'var(--text-3)' }}>
+                      Trang <strong>{page}</strong> / <strong>{totalPages}</strong> (Tổng số {board.length} thú cưng)
+                    </span>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button 
+                        className="btn btn-outline btn-sm" 
+                        onClick={() => setPage(prev => Math.max(1, prev - 1))} 
+                        disabled={page <= 1}
+                        style={{ padding: '4px 12px', fontSize: 12 }}
+                      >
+                        Trước
+                      </button>
+                      <button 
+                        className="btn btn-outline btn-sm" 
+                        onClick={() => setPage(prev => Math.min(totalPages, prev + 1))} 
+                        disabled={page >= totalPages}
+                        style={{ padding: '4px 12px', fontSize: 12 }}
+                      >
+                        Sau
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()
         )}
       </div>
     </div>
