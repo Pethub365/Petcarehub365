@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Trash2, Home, ShieldAlert, RefreshCw, Settings, ClipboardList, PawPrint, X, Utensils, Footprints, Scissors, Heart } from 'lucide-react';
+import { Users, Trash2, Home, ShieldAlert, RefreshCw, Settings, ClipboardList, PawPrint, X, Utensils, Footprints, Scissors, Heart, User, Mail, MailOpen, Key, PlusCircle, Crown } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import familyApi from '../../api/familyApi';
@@ -304,7 +304,7 @@ export default function FamilyPage() {
     return (
       <div style={{ padding: 24 }}>
         <div className="page-header">
-          <h1>👨‍👩‍👧 Quản lý gia đình</h1>
+          <h1 style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Users size={24} color="var(--primary)" /> Quản lý gia đình</h1>
           <p>Tải thông tin gia đình...</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24 }}>
@@ -325,7 +325,7 @@ export default function FamilyPage() {
   return (
     <div>
       <div className="page-header">
-        <h1>👨‍👩‍👧 Quản lý gia đình {familyGroup && <span style={{ fontSize: 16, color: 'var(--text-3)' }}>({familyGroup.group_name})</span>}</h1>
+        <h1 style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Users size={24} color="var(--primary)" /> Quản lý gia đình {familyGroup && <span style={{ fontSize: 16, color: 'var(--text-3)' }}>({familyGroup.group_name})</span>}</h1>
         <p>Chia sẻ việc chăm sóc thú cưng với các thành viên trong gia đình</p>
       </div>
 
@@ -409,10 +409,10 @@ export default function FamilyPage() {
                   if (!memberUser) return null;
                   return (
                     <div key={m._id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0', borderBottom: '1px solid var(--border)' }}>
-                      <div className="avatar avatar-md" style={{ fontSize: 18, background: 'var(--primary-bg)' }}>
+                      <div className="avatar avatar-md" style={{ fontSize: 18, background: 'var(--primary-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {memberUser.profile?.avatar_url ? (
                           <img src={memberUser.profile.avatar_url} alt={memberUser.profile.full_name || memberUser.email} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                        ) : '👤'}
+                        ) : <User size={18} color="var(--primary)" />}
                       </div>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 700, fontSize: 14 }}>{memberUser.profile?.full_name || memberUser.email}</div>
@@ -433,8 +433,8 @@ export default function FamilyPage() {
             {/* Invite Member Card */}
             {isFamilyAdmin && (
               <div className="card">
-                <div className="section-title" style={{ marginBottom: 12 }}>
-                  📨 Mời thành viên tham gia gia đình
+                <div className="section-title" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Mail size={16} /> Mời thành viên tham gia gia đình
                 </div>
                 <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 16 }}>
                   Nhập email của thành viên gia đình để gửi email mời và tạo mã kích hoạt.
@@ -527,8 +527,8 @@ export default function FamilyPage() {
                               fontWeight:600, fontSize:13, cursor:'pointer', whiteSpace:'nowrap', flexShrink:0,
                               transition: 'all 0.15s'
                             }}>
-                            <div className="avatar avatar-sm" style={{ fontSize:12, width: 22, height: 22 }}>
-                              {pet.avatar_url ? <img src={pet.avatar_url} alt={pet.name} style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}}/> : '🐾'}
+                            <div className="avatar avatar-sm" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, background: 'var(--primary-bg)' }}>
+                              {pet.avatar_url ? <img src={pet.avatar_url} alt={pet.name} style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}}/> : <PawPrint size={12} color="var(--primary)" />}
                             </div>
                             <span>{pet.name}</span>
                             {isAllCompleted ? (
@@ -560,10 +560,10 @@ export default function FamilyPage() {
                         {/* Pet Header */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <div className="avatar avatar-sm" style={{ fontSize: 12 }}>
+                            <div className="avatar avatar-sm" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--primary-bg)', width: 32, height: 32 }}>
                               {pet.avatar_url ? (
                                 <img src={pet.avatar_url} alt={pet.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                              ) : '🐾'}
+                              ) : <PawPrint size={16} color="var(--primary)" />}
                             </div>
                             <div>
                               <span style={{ fontWeight: 800, fontSize: 15 }}>{pet.name}</span>
@@ -678,8 +678,8 @@ export default function FamilyPage() {
             {/* Pending Invitations list */}
             {pendingInvites.length > 0 && (
               <div className="card" style={{ borderColor: 'var(--primary-border)' }}>
-                <div className="section-title" style={{ marginBottom: 12 }}>
-                  📨 Lời mời đang chờ bạn ({pendingInvites.length})
+                <div className="section-title" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <MailOpen size={16} /> Lời mời đang chờ bạn ({pendingInvites.length})
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {pendingInvites.map(invite => (
@@ -699,8 +699,8 @@ export default function FamilyPage() {
 
             {/* Join with Invite Code form */}
             <div className="card">
-              <div className="section-title" style={{ marginBottom: 12 }}>
-                🔑 Gia nhập gia đình bằng mã mời
+              <div className="section-title" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Key size={16} /> Gia nhập gia đình bằng mã mời
               </div>
               <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 16 }}>Nhập mã mời gồm 6 ký tự viết hoa nhận được từ chủ nhóm để tham gia.</p>
               <form onSubmit={handleJoinGroup} style={{ display: 'flex', gap: 12 }}>
@@ -723,8 +723,8 @@ export default function FamilyPage() {
 
           {/* Create new group */}
           <div className="card">
-            <div className="section-title" style={{ marginBottom: 12 }}>
-              🏠 Tạo nhóm gia đình mới
+            <div className="section-title" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <PlusCircle size={16} /> Tạo nhóm gia đình mới
             </div>
             {isVip ? (
               <>
@@ -750,7 +750,9 @@ export default function FamilyPage() {
               </>
             ) : (
               <div style={{ textAlign: 'center', padding: '10px 0' }}>
-                <div style={{ fontSize: 32, marginBottom: 10 }}>👑</div>
+                <div style={{ marginBottom: 10, display: 'flex', justifyContent: 'center' }}>
+                  <Crown size={36} color="#F59E0B" fill="#F59E0B" />
+                </div>
                 <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>Yêu cầu gói VIP</div>
                 <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 16 }}>
                   Chức năng Tạo nhóm gia đình mới để chia sẻ quyền quản lý thú cưng chỉ khả dụng đối với tài khoản VIP.
@@ -814,8 +816,8 @@ export default function FamilyPage() {
                           );
                         }}
                       />
-                      <div className="avatar avatar-sm">
-                        {pet.avatar_url ? <img src={pet.avatar_url} alt={pet.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : '🐾'}
+                      <div className="avatar avatar-sm" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--primary-bg)' }}>
+                        {pet.avatar_url ? <img src={pet.avatar_url} alt={pet.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : <PawPrint size={14} color="var(--primary)" />}
                       </div>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 700, fontSize: 13 }}>{pet.name}</div>

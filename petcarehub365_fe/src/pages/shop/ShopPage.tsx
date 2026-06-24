@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ShoppingCart, Plus, Minus, Star } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Star, Bone, Gamepad2, Heart, Tag, Crown, ShoppingBag } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
 import SubscriptionPlansPage from '../settings/SubscriptionPlansPage';
 
@@ -13,7 +13,24 @@ const MOCK_PRODUCTS = [
   { _id:'p6', name:'Bát ăn tự động', price:220000, category:'ACCESSORY', rating:4.4, reviews:78, description:'Định lượng khẩu phần ăn tự động', image:'', badge:'' },
 ];
 const CATEGORIES = ['ALL','FOOD','TOY','CARE','ACCESSORY','VIP'];
-const EMOJIS: Record<string,string> = { FOOD:'🍖', TOY:'🎾', CARE:'🧴', ACCESSORY:'🎀', VIP:'👑', ALL:'🛍️' };
+
+const getCategoryIconDetails = (category: string) => {
+  switch (category) {
+    case 'FOOD':
+      return { Icon: Bone, color: '#FFA94D', label: 'Thức ăn', bg: '#FFF3E0' };
+    case 'TOY':
+      return { Icon: Gamepad2, color: '#4F8EF7', label: 'Đồ chơi', bg: '#EFF6FF' };
+    case 'CARE':
+      return { Icon: Heart, color: '#FF6B6B', label: 'Chăm sóc', bg: '#FFF5F5' };
+    case 'ACCESSORY':
+      return { Icon: Tag, color: '#A855F7', label: 'Phụ kiện', bg: '#F3E8FF' };
+    case 'VIP':
+      return { Icon: Crown, color: '#F59E0B', label: 'Hội viên VIP', bg: '#FEF3C7' };
+    case 'ALL':
+    default:
+      return { Icon: ShoppingBag, color: '#10B981', label: 'Tất cả', bg: '#E8F8EF' };
+  }
+};
 
 export default function ShopPage() {
   const navigate = useNavigate();
@@ -44,7 +61,7 @@ export default function ShopPage() {
     <div>
       <div className="page-header" style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
         <div>
-          <h1>🛒 Cửa hàng thú cưng</h1>
+          <h1 style={{ display: 'flex', alignItems: 'center', gap: 10 }}><ShoppingCart size={24} color="var(--primary)" /> Cửa hàng thú cưng</h1>
           <p>Tất cả đồ dùng và thức ăn cho thú cưng của bạn</p>
         </div>
         <button className="btn btn-primary" style={{ position:'relative' }} onClick={() => navigate('/checkout')}>
@@ -59,18 +76,21 @@ export default function ShopPage() {
 
       {/* Category tabs */}
       <div style={{ display:'flex', gap:10, marginBottom:24, overflowX:'auto', paddingBottom:4 }}>
-        {CATEGORIES.map(c => (
-          <button key={c} onClick={() => setCat(c)}
-            style={{
-              display:'flex', alignItems:'center', gap:6, padding:'8px 18px', borderRadius:20,
-              border:`2px solid ${cat===c?'var(--primary)':'var(--border)'}`,
-              background: cat===c?'var(--primary-bg)':'var(--surface)',
-              color: cat===c?'var(--primary)':'var(--text-2)',
-              fontWeight:600, fontSize:13, cursor:'pointer', whiteSpace:'nowrap', flexShrink:0
-            }}>
-            {EMOJIS[c]} {c==='ALL'?'Tất cả':c}
-          </button>
-        ))}
+        {CATEGORIES.map(c => {
+          const { Icon, color, label } = getCategoryIconDetails(c);
+          return (
+            <button key={c} onClick={() => setCat(c)}
+              style={{
+                display:'flex', alignItems:'center', gap:6, padding:'8px 18px', borderRadius:20,
+                border:`2px solid ${cat===c?'var(--primary)':'var(--border)'}`,
+                background: cat===c?'var(--primary-bg)':'var(--surface)',
+                color: cat===c?'var(--primary)':'var(--text-2)',
+                fontWeight:600, fontSize:13, cursor:'pointer', whiteSpace:'nowrap', flexShrink:0
+              }}>
+              <Icon size={14} color={cat===c?'var(--primary)':color} /> {label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Products grid or Subscription plans */}
@@ -78,21 +98,23 @@ export default function ShopPage() {
         <SubscriptionPlansPage hideHeader={true} />
       ) : (
         <div className="grid grid-3">
-          {filtered.map(p => (
-            <div key={p._id} className="card" style={{ overflow:'hidden', padding:0 }}>
-              {/* Image placeholder */}
-              <div style={{
-                height:160, background:'linear-gradient(135deg, var(--primary-bg), #FFE0E0)',
-                display:'flex', alignItems:'center', justifyContent:'center',
-                fontSize:60, position:'relative'
-              }}>
-                {EMOJIS[p.category]}
-                {p.badge && (
-                  <span style={{ position:'absolute', top:12, left:12, background:'var(--primary)', color:'#fff', fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:12 }}>
-                    {p.badge}
-                  </span>
-                )}
-              </div>
+          {filtered.map(p => {
+            const { Icon, color, bg } = getCategoryIconDetails(p.category);
+            return (
+              <div key={p._id} className="card" style={{ overflow:'hidden', padding:0 }}>
+                {/* Image placeholder */}
+                <div style={{
+                  height:160, background:`linear-gradient(135deg, ${bg}, #FFF)`,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  position:'relative'
+                }}>
+                  <Icon size={48} color={color} style={{ opacity: 0.8 }} />
+                  {p.badge && (
+                    <span style={{ position:'absolute', top:12, left:12, background:'var(--primary)', color:'#fff', fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:12 }}>
+                      {p.badge}
+                    </span>
+                  )}
+                </div>
 
               <div style={{ padding:'16px' }}>
                 <div style={{ fontWeight:700, fontSize:15, marginBottom:4, color:'var(--text)' }}>{p.name}</div>
@@ -121,8 +143,9 @@ export default function ShopPage() {
                 </button>
               </div>
             </div>
-          ))}
-        </div>
+          );
+        })}
+      </div>
       )}
     </div>
   );

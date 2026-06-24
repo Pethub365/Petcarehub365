@@ -833,6 +833,50 @@ tbody tr:last-child td { border-bottom: none; }
   60%  { transform: scale(1.05); }
   100% { transform: scale(1); opacity: 1; }
 }
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Range Slider (Health Dashboard) ── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  outline: none;
+  transition: background 0.15s ease;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(255,107,107,.35);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 3px 12px rgba(255,107,107,.45);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(255,107,107,.35);
+  cursor: pointer;
+}
+input[type="range"]:focus {
+  background: var(--primary-border);
+}
 
 /* ═══════════════════════════════════════════
    RESPONSIVE

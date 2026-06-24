@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Star, Lock } from 'lucide-react';
+import { Star, Lock, Trophy, CheckCircle } from 'lucide-react';
 import achievementApi from '../../api/achievementApi';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -131,9 +131,11 @@ export default function AchievementsPage() {
       ) : (
         <>
           {/* Summary */}
-          <div className="card" style={{ background:'linear-gradient(135deg, #FFD700, #FF8C00)', border:'none', marginBottom:24, color:'#fff' }}>
+          <div className="card" style={{ background:'linear-gradient(135deg, #FFB020, #FF6F00)', border:'none', marginBottom:24, color:'#fff', boxShadow: '0 8px 24px rgba(255,111,0,0.15)' }}>
             <div style={{ display:'flex', alignItems:'center', gap:20 }}>
-              <div style={{ fontSize:60 }}>🏆</div>
+              <div style={{ background: 'rgba(255,255,255,0.2)', padding: 14, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Trophy size={48} strokeWidth={1.5} color="#fff" />
+              </div>
               <div>
                 <div style={{ fontSize:32, fontWeight:800 }}>{unlockedCount}</div>
                 <div style={{ fontSize:14, opacity:.85 }}>/{achievements.length} thành tích đạt được</div>
@@ -165,11 +167,14 @@ export default function AchievementsPage() {
                   <div style={{ fontSize:48, marginBottom:12 }}>{a.icon}</div>
                   <div style={{ fontWeight:700, fontSize:15, marginBottom:6 }}>{a.title}</div>
                   <div style={{ fontSize:12, color:'var(--text-3)', marginBottom:12 }}>{a.description}</div>
-                  <span className={`chip ${a.unlocked ? 'chip-green' : 'chip-gray'}`}>
-                    {a.unlocked ? '✅ Đã đạt' : '🔒 Chưa đạt'}
+                  <span className={`chip ${a.unlocked ? 'chip-green' : 'chip-gray'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
+                    {a.unlocked ? <CheckCircle size={12} /> : <Lock size={12} />}
+                    {a.unlocked ? 'Đã đạt' : 'Chưa đạt'}
                   </span>
                   <div style={{ marginTop:10 }}>
-                    <span className="chip chip-yellow">⭐ {a.xp} XP</span>
+                    <span className="chip chip-yellow" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
+                      <Star size={12} fill="#F59E0B" color="transparent" /> {a.xp} XP
+                    </span>
                   </div>
                 </div>
               ))}

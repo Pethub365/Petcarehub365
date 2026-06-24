@@ -9,6 +9,7 @@ router.route('/logs/:logId')
   .delete(healthController.deleteHealthLog);
 
 router.route('/vaccines/:vaccineId')
+  .put(healthController.updateVaccine)
   .delete(healthController.deleteVaccine);
 
 router.route('/:petId/logs')

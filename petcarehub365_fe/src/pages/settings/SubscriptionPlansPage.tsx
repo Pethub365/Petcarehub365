@@ -100,7 +100,7 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
   };
 
   const planIcons: Record<string, any> = {
-    FREE: () => <span style={{ fontSize: 24 }}>🆓</span>,
+    FREE: () => <ShieldCheck size={24} color="var(--text-3)" />,
     PREMIUM: () => <Star size={24} className="text-secondary" color="var(--secondary)" fill="var(--secondary)" />,
     VIP: () => <Crown size={24} color="var(--gold)" fill="var(--gold)" />,
   };
@@ -141,7 +141,9 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
       if (userPlan === 'VIP') {
         return (
           <button className="btn btn-outline" style={{ width: '100%', cursor: 'default' }} disabled>
-            Đã bao gồm trong VIP 👑
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
+              Đã bao gồm trong VIP <Crown size={12} style={{ color: 'var(--gold)' }} fill="var(--gold)" />
+            </span>
           </button>
         );
       }
@@ -184,8 +186,10 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
       {!hideHeader && (
         <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
           <div>
-            <h1>👑 Gói đăng ký hội viên</h1>
-            <p>Nâng cấp gói để trải nghiệm các đặc quyền chăm sóc thú cưng không giới hạn</p>
+            <h1 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Crown size={26} color="var(--gold)" fill="var(--gold)" /> Gói đăng ký hội viên
+            </h1>
+            <p>Nâng cấp gói để trải nghiệm các đặc quyền chăm sổ thú cưng không giới hạn</p>
           </div>
         </div>
       )}
@@ -210,8 +214,14 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
                   <div>
                     <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-3)', letterSpacing: '.06em', marginBottom: 4 }}>Gói của bạn hiện tại</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--text)' }}>
-                        {currentSub.plan_type === 'FREE' ? 'Gói Miễn Phí' : currentSub.plan_type === 'PREMIUM' ? 'Gói Premium ⭐' : 'Gói VIP 👑'}
+                      <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--text)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        {currentSub.plan_type === 'FREE' && 'Gói Miễn Phí'}
+                        {currentSub.plan_type === 'PREMIUM' && (
+                          <>Gói Premium <Star size={14} color="var(--secondary)" fill="var(--secondary)" /></>
+                        )}
+                        {currentSub.plan_type === 'VIP' && (
+                          <>Gói VIP <Crown size={14} color="var(--gold)" fill="var(--gold)" /></>
+                        )}
                       </span>
                       <span className={`chip ${currentSub.status === 'ACTIVE' ? 'chip-green' : 'chip-gray'}`} style={{ fontSize: 10, padding: '2px 6px' }}>
                         {currentSub.status === 'ACTIVE' ? 'KÍCH HOẠT' : 'HẾT HẠN'}
@@ -491,7 +501,9 @@ export default function SubscriptionPlansPage({ hideHeader = false }: { hideHead
                   <ShieldCheck size={36} />
                 </div>
 
-                <h3 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginBottom: 6 }}>Nâng cấp thành công! 🌟</h3>
+                <h3 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  Nâng cấp thành công! <Star size={18} color="var(--gold)" fill="var(--gold)" />
+                </h3>
                 <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 20 }}>
                   Giao dịch của bạn đã được xử lý và kích hoạt thành công.
                 </p>

@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import authApi from '../api/authApi';
 import userApi from '../api/userApi';
 import petApi from '../api/petApi';
@@ -35,7 +35,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [pets, setPets] = useState<any[]>([]);
   const [loadingPets, setLoadingPets] = useState(false);
 
-  const refreshPets = async () => {
+  const refreshPets = useCallback(async () => {
     try {
       setLoadingPets(true);
       const res = await petApi.getPets() as any;
@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } finally {
       setLoadingPets(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated) {

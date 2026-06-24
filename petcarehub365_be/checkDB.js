@@ -11,7 +11,7 @@ async function check() {
     const users = await db.collection('users').find({}).toArray();
     console.log('Total users in DB:', users.length);
     console.log('Users list:', users.map(u => ({ id: u._id, email: u.email, name: u.profile?.full_name })));
-
+    
     const pets = await db.collection('pets').find({}).toArray();
     console.log('Total pets in DB:', pets.length);
     console.log('Pets list:', pets.map(p => ({ id: p._id, name: p.name, owner: p.owner_id, xp: p.stats?.xp, level: p.stats?.level })));

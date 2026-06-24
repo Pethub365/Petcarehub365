@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Bell, CheckCheck } from 'lucide-react';
+import { 
+  Bell, CheckCheck, CheckSquare, Heart, Trophy, ShoppingBag, 
+  Syringe, ShieldAlert, Sparkles 
+} from 'lucide-react';
 import { useNotifications } from '../../contexts/NotificationContext';
 
 export default function NotificationsPage() {
@@ -11,7 +14,28 @@ export default function NotificationsPage() {
     load();
   }, []);
 
-  const ICONS: Record<string, string> = { QUEST:'✅', HEALTH:'❤️', ACHIEVEMENT:'🏆', SYSTEM:'🔔', SHOP:'🛒', VACCINE_REMINDER:'💉', SUBSCRIPTION_EXPIRING:'⏰', SUBSCRIPTION:'🌟' };
+  const getNotificationIconDetails = (type: string) => {
+    switch (type) {
+      case 'QUEST':
+        return { Icon: CheckSquare, color: '#10B981', bg: '#E8F8EF' };
+      case 'HEALTH':
+        return { Icon: Heart, color: '#EF4444', bg: '#FFF0F0' };
+      case 'ACHIEVEMENT':
+        return { Icon: Trophy, color: '#F59E0B', bg: '#FFF9E6' };
+      case 'SYSTEM':
+        return { Icon: Bell, color: '#3B82F6', bg: '#EFF6FF' };
+      case 'SHOP':
+        return { Icon: ShoppingBag, color: '#EC4899', bg: '#FDF2F8' };
+      case 'VACCINE_REMINDER':
+        return { Icon: Syringe, color: '#8B5CF6', bg: '#F5F3FF' };
+      case 'SUBSCRIPTION_EXPIRING':
+        return { Icon: ShieldAlert, color: '#EF4444', bg: '#FFF0F0' };
+      case 'SUBSCRIPTION':
+        return { Icon: Sparkles, color: '#D97706', bg: '#FEF3C7' };
+      default:
+        return { Icon: Bell, color: '#6B7280', bg: '#F3F4F6' };
+    }
+  };
 
   return (
     <div>
@@ -50,6 +74,7 @@ export default function NotificationsPage() {
           <div style={{ display:'flex', flexDirection:'column' }}>
             {notifications.map(n => {
               const read = !!(n.isRead || n.is_read);
+              const { Icon, color, bg } = getNotificationIconDetails(n.type);
               return (
                 <div key={n._id} 
                   className="notification-item"
@@ -60,8 +85,18 @@ export default function NotificationsPage() {
                     background: read ? 'transparent' : 'var(--primary-bg)',
                   }}
                 >
-                  <div style={{ width:44, height:44, borderRadius:12, background: read?'var(--surface2)':'#FFE0E0', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>
-                    {ICONS[n.type] || '🔔'}
+                  <div style={{ 
+                    width: 44, 
+                    height: 44, 
+                    borderRadius: 12, 
+                    background: read ? 'var(--surface2)' : bg, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    color: read ? 'var(--text-3)' : color, 
+                    flexShrink: 0 
+                  }}>
+                    <Icon size={20} strokeWidth={2} />
                   </div>
                   <div style={{ flex:1 }}>
                     <div style={{ fontWeight: read ? 500 : 700, fontSize:14, color:'var(--text)', marginBottom:3 }}>{n.title || n.message}</div>

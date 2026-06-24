@@ -70,13 +70,16 @@ exports.createFamilyGroup = catchAsync(async (req, res) => {
 exports.inviteMember = catchAsync(async (req, res) => {
   const { invited_email } = req.body;
 
-  // Kiểm tra xem người được mời đã tham gia nhóm gia đình nào chưa
+  // Kiểm tra xem người được mời có tồn tại trong hệ thống hay chưa
   const invitedUser = await User.findOne({ email: invited_email.toLowerCase() });
-  if (invitedUser) {
-    const isAlreadyInGroup = await FamilyGroup.findOne({ 'members.user_id': invitedUser._id });
-    if (isAlreadyInGroup) {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'Người dùng này đã tham gia một nhóm gia đình khác rồi');
-    }
+  if (!invitedUser) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Email này chưa được đăng ký tài khoản trên hệ thống. Thành viên phải có tài khoản trước khi mời.');
+  }
+
+  // Kiểm tra xem người được mời đã tham gia nhóm gia đình nào chưa
+  const isAlreadyInGroup = await FamilyGroup.findOne({ 'members.user_id': invitedUser._id });
+  if (isAlreadyInGroup) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Người dùng này đã tham gia một nhóm gia đình khác rồi');
   }
 
   // Giới hạn tính năng chỉ dành cho gói VIP
